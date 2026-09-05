@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDeclaration
+from frontend.abstractSyntaxTree import Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDeclaration, AssignmentExpr
 from frontend.lexer import tokenize, Token, TokenType
 import logging
 import sys
@@ -56,7 +56,18 @@ class Parser:
         return declaration
 
     def parseExpr(self) -> Expr:
-        return self.parseAdditiveExpr()
+        return self.parseAssignmentExpr()
+    
+    def parseAssignmentExpr(self) -> Expr:
+        left = self.parseAdditiveExpr()
+
+        if self.at().type == TokenType.Equals:
+                self.advance()
+                value = self.parseAdditiveExpr()
+                left = AssignmentExpr(left, value, type = "AssignmentExpr")
+                self.expect(TokenType.EOS, "Expected end of statement token following variable assignment.")
+
+        return left
 
     def parseAdditiveExpr(self) -> Expr:
         left = self.parseMultiplicativeExpr()
@@ -92,7 +103,7 @@ class Parser:
                 value = self.parseExpr()
                 self.expect(TokenType.CloseParen, "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",)
                 return value
-            
+
             case _:
                 logging.error(f"Unexpected token: {self.at().value}")
                 sys.exit(1)

@@ -7,6 +7,7 @@ NodeType = Literal[
     "VarDecl",
 
     # Expressions
+    "AssignmentExpr",
     "NumericLiteral",
     "Identifier",
     "BinaryExpr"
@@ -29,6 +30,12 @@ class VarDeclaration(Stmt):
 
 class Expr(Stmt):
     type: NodeType
+
+@dataclass
+class AssignmentExpr(Expr):
+    assigne : Expr
+    value : Expr
+    type: NodeType = "AssignmentExpr"
 
 @dataclass
 class BinaryExpr(Expr):

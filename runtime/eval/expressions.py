@@ -1,5 +1,5 @@
 from runtime.values import RuntimeVal, NumberVal, MK_NUMBER, MK_NULL
-from frontend.abstractSyntaxTree import BinaryExpr, Identifier
+from frontend.abstractSyntaxTree import BinaryExpr, Identifier, AssignmentExpr
 import runtime.interpreter as interpreter
 from runtime.environment import Environment
 from typing import cast
@@ -28,6 +28,13 @@ def evalNumericBinaryExpr(leftHand: NumberVal, rightHand: NumberVal, operator: s
         result = leftHand.value % rightHand.value
 
     return MK_NUMBER(result)
+
+def evalAssignmentExpr(node: AssignmentExpr, env : Environment) -> RuntimeVal:
+    if node.assigne.type != "Identifier":
+        raise Exception(f"Invalid LHS inside assignment expression: {node.assigne}")
+
+    varName = cast(Identifier, node.assigne).symbol
+    return env.assignVar(varName, interpreter.evaluate(node.value, env))
 
 def evalIdentifier(ident: Identifier, env: Environment) -> RuntimeVal:
     val = env.lookupVar(ident.symbol)
