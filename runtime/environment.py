@@ -1,5 +1,7 @@
-from typing import cast
-from runtime.values import RuntimeVal
+from typing import cast, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from runtime.values import RuntimeVal
 
 class Environment:
     parent : Environment | None
@@ -7,6 +9,7 @@ class Environment:
     constants : set[str]
 
     def __init__(self, parent: Environment | None):
+        isGlobal = parent is None
         self.parent = parent
         self.variables = {}
         self.constants = set()
@@ -31,7 +34,7 @@ class Environment:
 
     def lookupVar(self, varName: str) -> RuntimeVal:
         env = self.resolve(varName)
-        return cast(RuntimeVal, env.variables[varName])
+        return env.variables[varName]
 
     def resolve(self, varName: str) -> Environment:
         if self.variables.get(varName):

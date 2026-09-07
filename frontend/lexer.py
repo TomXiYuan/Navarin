@@ -12,23 +12,50 @@ class TokenType(IntEnum):
     # Grouping and Operators
     Equals = auto()
     EOS = auto()
+    Comma = auto()
+    Colon = auto()
     OpenParen = auto()
     CloseParen = auto()
+    OpenBrace = auto() # {
+    CloseBrace = auto() # }
     BinaryOperator = auto()
 
     # Keywords
-    Let = auto()
+    Var = auto()
     Const = auto()
+    Func = auto()
+    Return = auto()
 
     # End of file
     EOF = auto()
 
 KEYWORDS = {
-    "let": TokenType.Let,
-    "const": TokenType.Const
+    "var": TokenType.Var,
+    "const": TokenType.Const,
+    "func": TokenType.Func,
+    "return": TokenType.Return
 }
 
-@dataclass
+SINGLECHARS = {
+    "(": TokenType.OpenParen,
+    ")": TokenType.CloseParen,
+    "{": TokenType.OpenBrace,
+    "}": TokenType.CloseBrace,
+    ":": TokenType.Colon,
+    ",": TokenType.Comma,
+    ";": TokenType.EOS,
+    "+": TokenType.BinaryOperator,
+    "-": TokenType.BinaryOperator,
+    "*": TokenType.BinaryOperator,
+    "/": TokenType.BinaryOperator,
+    "%": TokenType.BinaryOperator,
+    "=": TokenType.Equals
+}
+
+SKIPPABLE = {" ", "\t", "\r", "\n"}
+EOS = {";"}
+
+@dataclass (frozen=True)
 class Token():
     value: str
     type: TokenType
@@ -37,48 +64,44 @@ def token(value: str, type: TokenType) -> Token:
     return Token(value=value, type=type)
 
 def isSkippable(string: str) -> bool:
-    return string in [" ", "\t"]
+    return string in SKIPPABLE
 
 def tokenize(sourceCode: str) -> list[Token]:
     tokens: list[Token] = []
     src = list(sourceCode)
 
     while len(src) > 0:
-        value = src.pop(0)
-        if value == "(":
-            tokens.append(token(value, TokenType.OpenParen))
-        elif value == ")":
-            tokens.append(token(value, TokenType.CloseParen))
-        elif value in ["+", "-", "*", "/", "%"]:
-            tokens.append(token(value, TokenType.BinaryOperator))
-        elif value == "=":
-            tokens.append(token(value, TokenType.Equals))
-        elif value == ";" or value == "\n":
-            tokens.append(token(value, TokenType.EOS))
-        else:
-            # Handle multi-character tokens
+        char = src.pop(0)
 
-            # Build number tokens
-            if value.isdigit():
-                numValue = value
-                while len(src) > 0 and src[0].isdigit():
-                    numValue += src.pop(0)
-                tokens.append(token(numValue, TokenType.Number))
-            # Build identifier tokens
-            elif value.isalpha():
-                idValue = value
-                while len(src) > 0 and src[0].isalpha():
-                    idValue += src.pop(0)
-                # Check if the identifier is a keyword
-                if idValue in KEYWORDS:
-                    tokens.append(token(idValue, KEYWORDS[idValue]))
-                else:
-                    tokens.append(token(idValue, TokenType.Identifier))
-            elif isSkippable(value):
-                continue
-            else:
-                logging.error(f"Unexpected character: {value}")
-                sys.exit(1)
+        if isSkippable(char): continue
+
+        if char in EOS:
+            # Only append EOS if the last token isn't already an EOS
+            if not tokens or tokens[-1].type != TokenType.EOS:
+                tokens.append(Token(";", TokenType.EOS))
+
+        elif char in SINGLECHARS:
+            tokens.append(Token(char, SINGLECHARS[char]))
+
+        # Build number tokens
+        elif char.isdigit():
+            numValue = char
+            while len(src) > 0 and (src[0].isdigit() or src[0] == "."):
+                numValue += src.pop(0)
+            tokens.append(token(numValue, TokenType.Number))
+
+        # Build identifier tokens
+        elif char.isalpha() or char == "_":
+            idValue = char
+            while len(src) > 0 and src[0].isalpha():
+                idValue += src.pop(0)
+            # Check if the identifier is a keyword
+            tokenType = KEYWORDS[idValue] if idValue in KEYWORDS else TokenType.Identifier
+            tokens.append(token(idValue, tokenType))
+
+        else:
+            logging.error(f"Unexpected character: {char}")
+            sys.exit(1)
 
     tokens.append(token("EndOfFile", TokenType.EOF))
     return tokens

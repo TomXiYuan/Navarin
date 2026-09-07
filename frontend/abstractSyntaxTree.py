@@ -5,8 +5,11 @@ NodeType = Literal[
     # Statements
     "Program",
     "VarDecl",
+    "FuncDecl",
+    "ReturnStmt",
 
     # Expressions
+    "FuncCallExpr",
     "AssignmentExpr",
     "NumericLiteral",
     "Identifier",
@@ -28,8 +31,26 @@ class VarDeclaration(Stmt):
     value: Expr | None = None
     type: NodeType = "VarDecl"
 
+@dataclass
+class FuncDeclaration(Stmt):
+    identifier : str
+    parameters: list[str]
+    body : list[Stmt]
+    type : NodeType = "FuncDecl"
+
+@dataclass
+class ReturnStmt(Stmt):
+    value: Expr | None
+    type : NodeType = "ReturnStmt"
+
 class Expr(Stmt):
     type: NodeType
+
+@dataclass
+class FuncCallExpr(Expr):
+    caller : Expr
+    args : list[Expr]
+    type: NodeType = "FuncCallExpr"
 
 @dataclass
 class AssignmentExpr(Expr):

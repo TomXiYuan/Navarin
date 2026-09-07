@@ -1,6 +1,6 @@
-from runtime.values import RuntimeVal, NullVal, MK_NULL
+from runtime.values import RuntimeVal, MK_NULL, FunctionValue, NullVal
 import runtime.interpreter as interpreter
-from frontend.abstractSyntaxTree import Program, VarDeclaration, Expr
+from frontend.abstractSyntaxTree import Program, VarDeclaration, FuncDeclaration, ReturnStmt
 from runtime.environment import Environment
 
 def evalProgram(program: Program, env: Environment) -> RuntimeVal:
@@ -17,4 +17,13 @@ def evalVarDeclaration(varDeclaration: VarDeclaration, env: Environment) -> Runt
         value = MK_NULL()
     
     return env.declareVar(varDeclaration.identifier, value, varDeclaration.constant)
+
+def evalFuncDeclaration(funcDeclaration: FuncDeclaration, env: Environment) -> RuntimeVal:
+    func = FunctionValue(name=funcDeclaration.identifier, parameters = funcDeclaration.parameters, declarationEnv = env, body = funcDeclaration.body)
+    return env.declareVar(funcDeclaration.identifier, func, False)
+
+def evalReturnStmt(stmt: ReturnStmt, env: Environment) -> RuntimeVal:
+    value = interpreter.evaluate(stmt.value, env) if stmt.value is not None else MK_NULL()
+    return value
+
 

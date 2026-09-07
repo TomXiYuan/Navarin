@@ -1,7 +1,12 @@
-from typing import Protocol, Literal
+from frontend.abstractSyntaxTree import Stmt
+from runtime.environment import Environment
 from dataclasses import dataclass
+from typing import Protocol, Literal, TYPE_CHECKING
 
-ValueType = Literal["null", "number", "boolean"]
+if TYPE_CHECKING:
+    from runtime.environment import Environment
+
+ValueType = Literal["null", "number", "boolean", "function"]
 
 class RuntimeVal(Protocol):
     type : ValueType
@@ -29,3 +34,11 @@ class BoolVal(RuntimeVal):
 
 def MK_BOOL(value : bool) -> BoolVal:
     return BoolVal(type = "boolean", value = value)
+
+@dataclass
+class FunctionValue(RuntimeVal):
+    name: str
+    parameters: list[str]
+    declarationEnv: Environment
+    body: list[Stmt]
+    type: ValueType = "function"

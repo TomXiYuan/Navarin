@@ -1,1 +1,10 @@
-let x = 45 * ( 3 / 4 )
+var x = 1;
+var y = 2;
+
+func add(a,b) { 
+    var c = a + b;
+    return c;
+}
+
+var z = add(x, y);
+z;

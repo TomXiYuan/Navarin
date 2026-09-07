@@ -1,8 +1,10 @@
-from runtime.values import RuntimeVal, NumberVal, MK_NUMBER, MK_NULL
-from frontend.abstractSyntaxTree import BinaryExpr, Identifier, AssignmentExpr
+from runtime.values import RuntimeVal, NumberVal, FunctionValue, MK_NUMBER, MK_NULL
+from frontend.abstractSyntaxTree import Expr, BinaryExpr, Identifier, AssignmentExpr, FuncCallExpr
 import runtime.interpreter as interpreter
 from runtime.environment import Environment
 from typing import cast
+import logging
+import sys
 
 def evalBinaryExpr(binop: BinaryExpr, env: Environment) -> RuntimeVal:
     leftHand = interpreter.evaluate(binop.left, env)
@@ -36,6 +38,31 @@ def evalAssignmentExpr(node: AssignmentExpr, env : Environment) -> RuntimeVal:
     varName = cast(Identifier, node.assigne).symbol
     return env.assignVar(varName, interpreter.evaluate(node.value, env))
 
-def evalIdentifier(ident: Identifier, env: Environment) -> RuntimeVal:
-    val = env.lookupVar(ident.symbol)
+def evalIdentifier(identifier: Identifier, env: Environment) -> RuntimeVal:
+    val = env.lookupVar(identifier.symbol)
     return val
+
+def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment) -> RuntimeVal:
+    funcVal = cast(FunctionValue, env.lookupVar(cast(Identifier, funcCall.caller).symbol))
+    funcEnv = Environment(env)
+
+    parameters = funcVal.parameters
+    if len(funcCall.args) != len(parameters):
+        logging.error(
+            f"Function expected {len(parameters)} argument(s), got {len(funcCall.args)}."
+        )
+        sys.exit(1)
+    
+    for i in range(len(parameters)):
+        parameterName: str = parameters[i]
+        parameterArg: Expr = funcCall.args[i]
+        funcEnv.declareVar(parameterName, interpreter.evaluate(parameterArg, env), False)
+
+    result: RuntimeVal = funcVal
+
+    for stmt in funcVal.body:
+        if stmt.type == "ReturnStmt":
+            return interpreter.evaluate(stmt, funcEnv)
+        result = interpreter.evaluate(stmt, funcEnv)
+
+    return result
