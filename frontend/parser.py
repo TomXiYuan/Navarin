@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDeclaration, AssignmentExpr, FuncDeclaration, FuncCallExpr, ReturnStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr
 from frontend.lexer import tokenize, Token, TokenType
 from typing import cast
 import logging
@@ -28,7 +28,7 @@ class Parser:
 
     def produceAST(self, sourceCode: str) -> Program:
         self.tokens = tokenize(sourceCode)
-        program: Program = Program(type = "Program", body = [])
+        program: Program = Program(type = NodeType.PROGRAM, body = [])
 
         while self.notEOF():
             program.body.append(self.parseStmt())
@@ -37,96 +37,97 @@ class Parser:
 
     def parseStmt(self) -> Stmt:
         match(self.at().type):
-            case TokenType.Var | TokenType.Const:
+            case TokenType.VAR | TokenType.CONST:
                 return self.parseVarDecl()
-            case TokenType.Func:
+            case TokenType.FUNC:
                 return self.parseFuncDecl()
-            case TokenType.Return:
+            case TokenType.RETURN:
                 return self.parseReturnStmt()
+            #case TokenType.IF:
+                #return self.parseIfStmt()
             case _:
                 return self.parseExpr()
 
     def parseVarDecl(self) -> Stmt:
-        isConstant = self.consume().type == TokenType.Const
-        identifier = self.expect(TokenType.Identifier, "Expected identifier name following let | const keywords.",).value
+        isConstant = self.consume().type == TokenType.CONST
+        identifier = self.expect(TokenType.IDENTIFIER, "Expected identifier name following let | const keywords.",).value
 
         if self.at().type == TokenType.EOS:
             self.consume()
             if isConstant:
                 logging.error(f"Constant variable '{identifier}' must be initialized.")
                 sys.exit(1)
-            return VarDeclaration(type="VarDecl", constant=False, identifier=identifier)
+            return VarDecl(type=NodeType.VARIABLE_DECLARATION, constant=False, identifier=identifier)
 
-        self.expect(TokenType.Equals, "Expected Equals token following identifier in var declaration.")
+        self.expect(TokenType.EQUALS, "Expected Equals token following identifier in var declaration.")
         value = self.parseAssignmentExpr()
         self.expect(TokenType.EOS, "Expected end of statement token following variable declaration.")
-        varDeclaration = VarDeclaration(type="VarDecl", constant=isConstant, identifier=identifier, value=value)
+        varDeclaration = VarDecl(type=NodeType.VARIABLE_DECLARATION, constant=isConstant, identifier=identifier, value=value)
         return varDeclaration
 
     def parseFuncDecl(self) -> Stmt:
         self.consume() # Consume func keyword
-        identifier = self.expect(TokenType.Identifier, "Expected Identifier token following func keyword.").value
+        identifier = self.expect(TokenType.IDENTIFIER, "Expected Identifier token following func keyword.").value
         args = self.parseArguments()
         params: list[str] = []
 
         for arg in args:
-            if arg.type != "Identifier":
+            if arg.type != NodeType.IDENTIFIER:
                 raise Exception(f"Inside function declaration expected parameters to be of token type Identifier.")
             params.append(cast(Identifier, arg).symbol)
 
-        self.expect(TokenType.OpenBrace, "Expected function body following declaration.")
+        self.expect(TokenType.OPEN_BRACE, "Expected function body following declaration.")
         body: list[Stmt] = []
 
-        while (self.at().type != TokenType.EOF and self.at().type != TokenType.CloseBrace):
+        while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
             body.append(self.parseStmt())
 
-        self.expect(TokenType.CloseBrace, "Closing brace expected inside function declaration")
-        func = FuncDeclaration(identifier = identifier, parameters = params, body = body, type = "FuncDecl")
+        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside function declaration")
+        func = FuncDecl(identifier = identifier, parameters = params, body = body, type = NodeType.FUNCTION_DECLARATION)
         return func
 
     def parseArguments(self) -> list[Expr]:
-        self.expect(TokenType.OpenParen, "Expected OpenParen token following function name.")
-        args = [] if self.at().type == TokenType.CloseParen else self.parseArgumentList();
-        self.expect(TokenType.CloseParen, "Missing closing parenthesis inside arguments list");
-
+        self.expect(TokenType.OPEN_PAREN, "Expected OpenParen token following function name.")
+        args = [] if self.at().type == TokenType.CLOSE_PAREN else self.parseArgumentList();
+        self.expect(TokenType.CLOSE_PAREN, "Missing closing parenthesis inside arguments list");
         return args
 
     def parseArgumentList(self) -> list[Expr]:
         args : list[Expr] = [self.parseAssignmentExpr()]
-        while (self.at().type == TokenType.Comma and self.consume()):
+        while (self.at().type == TokenType.COMMA and self.consume()):
             args.append(self.parseAssignmentExpr())
         return args
 
     def parseReturnStmt(self) -> Stmt:
-        self.consume()  # Consume return keyword
+        self.consume() # Consume return keyword
         value = None
 
         if self.at().type != TokenType.EOS:
-            value = self.parseAdditiveExpr()
+            value = self.parseAssignmentExpr()
 
         self.expect(TokenType.EOS, "Expected EOS token following return statement.")
-        return ReturnStmt(type="ReturnStmt", value=value)
+        return ReturnStmt(type=NodeType.RETURN_STATEMENT, value=value)
 
     def parseExpr(self) -> Expr:
         expr = self.parseAssignmentExpr()
-        # Expressions must consume a EOS if they are acting as a statement
+        # Exprs must consume a EOS if they are acting as a statement
         self.expect(TokenType.EOS, "Expected EOS token after expression statement.")
         return expr
         
     def parseAssignmentExpr(self) -> Expr:
-        left = self.parseAdditiveExpr()
+        left = self.parseLogicExpr()
 
-        if self.at().type == TokenType.Equals:
+        if self.at().type == TokenType.EQUALS:
             self.consume()
             # Use parseAssignmentExpr() instead of parseAdditiveExpr() 
             # allows for right-associative chained assignments (e.g., x = y = 3.14)
             right = self.parseAssignmentExpr()
 
-            if left.type != "Identifier":
+            if left.type != NodeType.IDENTIFIER:
                 logging.error(f"Invalid assignment target: expected Identifier, got {left.type}")
                 sys.exit(1)
 
-            left = AssignmentExpr(left, right, type = "AssignmentExpr")
+            left = AssignmentExpr(left, right, type = NodeType.ASSIGNMENT_EXPRESSION)
 
         return left
 
@@ -135,38 +136,59 @@ class Parser:
         while self.notEOF() and self.at().value in operators:
             operator = self.consume().value
             right = downstreamParser()
-            left = BinaryExpr(type="BinaryExpr", left=left, right=right, operator=operator)
+            left = BinaryExpr(type=NodeType.BINARY_EXPRESSION, left=left, right=right, operator=operator)
         return left
+
+    def parseLogicExpr(self) -> Expr:
+        return self.parseBinaryExpr(self.parseComparisonExpr, {"&&", "||"})
+
+    def parseComparisonExpr(self) -> Expr:
+        return self.parseBinaryExpr(self.parseAdditiveExpr, {">", "<", ">=", "<=", "=="})
         
     def parseAdditiveExpr(self) -> Expr:
         return self.parseBinaryExpr(self.parseMultiplicativeExpr, {"+", "-"})
 
     def parseMultiplicativeExpr(self) -> Expr:
-        return self.parseBinaryExpr(self.parseFuncCallExpr, {"*", "/", "%"})
+        return self.parseBinaryExpr(self.parseUnaryExpr, {"*", "/", "%"})
+
+    def parseUnaryExpr(self) -> Expr:
+        #Prefix
+        if self.at().type == TokenType.UNARY_OPERATOR:
+            operator = self.consume().value
+            operand = self.parseFuncCallExpr()
+            return UnaryExpr(operand, operator, isPrefix= True, type=NodeType.UNARY_EXPRESSION)
+
+        expr = self.parseFuncCallExpr()
+
+        #Postfix
+        if self.at().type == TokenType.UNARY_OPERATOR:
+            operator = self.consume().value
+            return UnaryExpr(expr, operator, isPrefix= False, type=NodeType.UNARY_EXPRESSION)
+
+        return expr
 
     def parseFuncCallExpr(self) -> Expr:
         expr = self.parsePrimaryExpr()
 
-        if self.at().type == TokenType.OpenParen:
-            # Wrap expression into function call
+        if self.at().type == TokenType.OPEN_PAREN:
             caller = cast(Expr, expr)
-            expr = FuncCallExpr(caller=caller, args=self.parseArguments(), type="FuncCallExpr")
+            expr = FuncCallExpr(caller=caller, args=self.parseArguments(), type= NodeType.FUNCTION_CALL_EXPRESSION)
 
         return cast(Expr, expr)
 
     def parsePrimaryExpr(self) -> Expr:
         tk = self.at().type
         match tk:
-            case TokenType.Identifier:
-                return Identifier(type="Identifier", symbol=self.consume().value)
+            case TokenType.IDENTIFIER:
+                return Identifier(type=NodeType.IDENTIFIER, symbol=self.consume().value)
             
-            case TokenType.Number:
-                return NumericLiteral(type="NumericLiteral", value=float(self.consume().value))
+            case TokenType.NUMBER:
+                return NumericLiteral(type=NodeType.NUMERIC_LITERAL, value=float(self.consume().value))
             
-            case TokenType.OpenParen:
+            case TokenType.OPEN_PAREN:
                 self.consume()
                 value = self.parseExpr()
-                self.expect(TokenType.CloseParen, "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",)
+                self.expect(TokenType.CLOSE_PAREN, "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",)
                 return value
 
             case _:

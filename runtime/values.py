@@ -1,5 +1,4 @@
 from frontend.abstractSyntaxTree import Stmt
-from runtime.environment import Environment
 from dataclasses import dataclass
 from typing import Protocol, Literal, TYPE_CHECKING
 
@@ -36,7 +35,7 @@ def MK_BOOL(value : bool) -> BoolVal:
     return BoolVal(type = "boolean", value = value)
 
 @dataclass
-class FunctionValue(RuntimeVal):
+class FuncVal(RuntimeVal):
     name: str
     parameters: list[str]
     declarationEnv: Environment

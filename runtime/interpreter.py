@@ -1,39 +1,42 @@
 from runtime.values import RuntimeVal, NumberVal
-from frontend.abstractSyntaxTree import Program, BinaryExpr, NumericLiteral, Stmt, Identifier, VarDeclaration, AssignmentExpr, FuncDeclaration, FuncCallExpr, ReturnStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr
 from runtime.environment import Environment
-from runtime.eval.expressions import evalBinaryExpr, evalIdentifier, evalAssignmentExpr, evalFuncCallExpr
-from runtime.eval.statements import evalProgram, evalVarDeclaration, evalFuncDeclaration, evalReturnStmt
+from runtime.eval.expressions import evalAssignmentExpr, evalIdentifier, evalBinaryExpr, evalUnaryExpr, evalFuncCallExpr
+from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt
 from typing import cast
 import logging
 import sys
 
 def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
     match astNode.type:
-        case "NumericLiteral":
+        case NodeType.NUMERIC_LITERAL:
             return NumberVal(type = "number", value = cast(NumericLiteral, astNode).value)
 
-        case "Identifier":
+        case NodeType.IDENTIFIER:
             return evalIdentifier(cast(Identifier, astNode), env)
 
-        case "AssignmentExpr":
+        case NodeType.ASSIGNMENT_EXPRESSION:
             return evalAssignmentExpr(cast(AssignmentExpr, astNode), env)
 
-        case "BinaryExpr":
+        case NodeType.BINARY_EXPRESSION:
             return evalBinaryExpr(cast(BinaryExpr, astNode), env)
 
-        case "Program":
+        case NodeType.UNARY_EXPRESSION:
+            return evalUnaryExpr(cast(UnaryExpr, astNode), env)
+
+        case NodeType.PROGRAM:
             return evalProgram(cast(Program, astNode), env)
 
-        case "VarDecl":
-            return evalVarDeclaration(cast(VarDeclaration, astNode), env)
+        case NodeType.VARIABLE_DECLARATION:
+            return evalVarDecl(cast(VarDecl, astNode), env)
 
-        case "FuncDecl":
-            return evalFuncDeclaration(cast(FuncDeclaration, astNode), env)
+        case NodeType.FUNCTION_DECLARATION:
+            return evalFuncDecl(cast(FuncDecl, astNode), env)
 
-        case "FuncCallExpr":
+        case NodeType.FUNCTION_CALL_EXPRESSION:
             return evalFuncCallExpr(cast(FuncCallExpr, astNode), env)
 
-        case "ReturnStmt":
+        case NodeType.RETURN_STATEMENT:
             return evalReturnStmt(cast(ReturnStmt, astNode), env)
 
         case _:

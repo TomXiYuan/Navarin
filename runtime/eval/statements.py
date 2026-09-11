@@ -1,7 +1,8 @@
-from runtime.values import RuntimeVal, MK_NULL, FunctionValue, NullVal
+from runtime.values import RuntimeVal, MK_NULL, FuncVal
 import runtime.interpreter as interpreter
-from frontend.abstractSyntaxTree import Program, VarDeclaration, FuncDeclaration, ReturnStmt
+from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt
 from runtime.environment import Environment
+from dataclasses import dataclass
 
 def evalProgram(program: Program, env: Environment) -> RuntimeVal:
     lastEvaluated: RuntimeVal = MK_NULL()
@@ -9,21 +10,28 @@ def evalProgram(program: Program, env: Environment) -> RuntimeVal:
         lastEvaluated = interpreter.evaluate(stmt, env)
     return lastEvaluated
 
-def evalVarDeclaration(varDeclaration: VarDeclaration, env: Environment) -> RuntimeVal:
+def evalVarDecl(varDecl: VarDecl, env: Environment) -> RuntimeVal:
     value : RuntimeVal
-    if varDeclaration.value:
-        value = interpreter.evaluate(varDeclaration.value, env)
+    if varDecl.value:
+        value = interpreter.evaluate(varDecl.value, env)
     else:
         value = MK_NULL()
     
-    return env.declareVar(varDeclaration.identifier, value, varDeclaration.constant)
+    return env.declVar(varDecl.identifier, value, varDecl.constant)
 
-def evalFuncDeclaration(funcDeclaration: FuncDeclaration, env: Environment) -> RuntimeVal:
-    func = FunctionValue(name=funcDeclaration.identifier, parameters = funcDeclaration.parameters, declarationEnv = env, body = funcDeclaration.body)
-    return env.declareVar(funcDeclaration.identifier, func, False)
+def evalFuncDecl(funcDecl: FuncDecl, env: Environment) -> RuntimeVal:
+    func = FuncVal(name=funcDecl.identifier, parameters = funcDecl.parameters, declarationEnv = env, body = funcDecl.body)
+    return env.declVar(funcDecl.identifier, func, False)
 
-def evalReturnStmt(stmt: ReturnStmt, env: Environment) -> RuntimeVal:
-    value = interpreter.evaluate(stmt.value, env) if stmt.value is not None else MK_NULL()
-    return value
+def evalReturnStmt(returnStmt: ReturnStmt, env: Environment):
+    value = MK_NULL()
+    if returnStmt.value != None:
+        value = interpreter.evaluate(returnStmt.value, env) 
+    raise Return(value)
+
+@dataclass
+class Return(Exception):
+    Value: RuntimeVal
+
 
 

@@ -4,7 +4,7 @@ from runtime.environment import Environment
 import sys
 
 def main():
-    run()
+    debug()
 
 def debug():
     parser = Parser()

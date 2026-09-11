@@ -5,103 +5,140 @@ import sys
 
 class TokenType(IntEnum):
     # Literals
-    Number = auto()
-    Identifier = auto()
-    String = auto()
-
+    NUMBER = auto()
+    IDENTIFIER = auto()
+    STRING = auto()
+    
     # Grouping and Operators
-    Equals = auto()
+    EQUALS = auto()
     EOS = auto()
-    Comma = auto()
-    Colon = auto()
-    OpenParen = auto()
-    CloseParen = auto()
-    OpenBrace = auto() # {
-    CloseBrace = auto() # }
-    BinaryOperator = auto()
-
+    COMMA = auto()
+    COLON = auto()
+    OPEN_PAREN = auto()
+    CLOSE_PAREN = auto()
+    OPEN_BRACE = auto()   # {
+    CLOSE_BRACE = auto()  # }
+    BINARY_OPERATOR = auto()
+    UNARY_OPERATOR = auto()
+    LOGIC_OPERATOR = auto()
+    
     # Keywords
-    Var = auto()
-    Const = auto()
-    Func = auto()
-    Return = auto()
-
+    VAR = auto()
+    CONST = auto()
+    FUNC = auto()
+    RETURN = auto()
+    IF = auto()
+    ELSE = auto()
+    
     # End of file
     EOF = auto()
 
+# Constants should also be UPPER_CASE
 KEYWORDS = {
-    "var": TokenType.Var,
-    "const": TokenType.Const,
-    "func": TokenType.Func,
-    "return": TokenType.Return
+    "var": TokenType.VAR,
+    "const": TokenType.CONST,
+    "func": TokenType.FUNC,
+    "return": TokenType.RETURN,
+    "if": TokenType.IF,
+    "else": TokenType.ELSE
 }
 
-SINGLECHARS = {
-    "(": TokenType.OpenParen,
-    ")": TokenType.CloseParen,
-    "{": TokenType.OpenBrace,
-    "}": TokenType.CloseBrace,
-    ":": TokenType.Colon,
-    ",": TokenType.Comma,
+SINGLE_CHARS = {
+    "(": TokenType.OPEN_PAREN,
+    ")": TokenType.CLOSE_PAREN,
+    "{": TokenType.OPEN_BRACE,
+    "}": TokenType.CLOSE_BRACE,
+
+    ":": TokenType.COLON,
+    ",": TokenType.COMMA,
     ";": TokenType.EOS,
-    "+": TokenType.BinaryOperator,
-    "-": TokenType.BinaryOperator,
-    "*": TokenType.BinaryOperator,
-    "/": TokenType.BinaryOperator,
-    "%": TokenType.BinaryOperator,
-    "=": TokenType.Equals
+
+    "+": TokenType.BINARY_OPERATOR,
+    "-": TokenType.BINARY_OPERATOR,
+    "*": TokenType.BINARY_OPERATOR,
+    "/": TokenType.BINARY_OPERATOR,
+    "%": TokenType.BINARY_OPERATOR,
+
+    "=": TokenType.EQUALS,
+
+    "<": TokenType.BINARY_OPERATOR,
+    ">": TokenType.BINARY_OPERATOR,
+
+    "!": TokenType.UNARY_OPERATOR
 }
 
-SKIPPABLE = {" ", "\t", "\r", "\n"}
-EOS = {";"}
+DOUBLE_CHARS = {
+    "<=": TokenType.BINARY_OPERATOR,
+    ">=": TokenType.BINARY_OPERATOR,
+    "==": TokenType.BINARY_OPERATOR,
+    "!=": TokenType.BINARY_OPERATOR,
 
-@dataclass (frozen=True)
-class Token():
+    "++": TokenType.UNARY_OPERATOR,
+    "--": TokenType.UNARY_OPERATOR,
+
+    "&&": TokenType.LOGIC_OPERATOR,
+    "||": TokenType.LOGIC_OPERATOR,
+}
+
+DOUBLE_CHAR_STARTS = {pair[0] for pair in DOUBLE_CHARS}
+SKIPPABLE = {" ", "\t", "\r", "\n"}
+EOS_CHARS = {";"}
+
+@dataclass(frozen=True)
+class Token:
     value: str
     type: TokenType
 
-def token(value: str, type: TokenType) -> Token:
+def create_token(value: str, type: TokenType) -> Token:
     return Token(value=value, type=type)
 
-def isSkippable(string: str) -> bool:
+def is_skippable(string: str) -> bool:
     return string in SKIPPABLE
 
-def tokenize(sourceCode: str) -> list[Token]:
+def tokenize(source_code: str) -> list[Token]:
     tokens: list[Token] = []
-    src = list(sourceCode)
-
+    src: list[str] = list(source_code)
+    
     while len(src) > 0:
-        char = src.pop(0)
-
-        if isSkippable(char): continue
-
-        if char in EOS:
-            # Only append EOS if the last token isn't already an EOS
+        char: str = src.pop(0)
+        
+        if is_skippable(char):
+            continue
+            
+        if char in EOS_CHARS:
             if not tokens or tokens[-1].type != TokenType.EOS:
                 tokens.append(Token(";", TokenType.EOS))
+                
+        elif char in SINGLE_CHARS or char in DOUBLE_CHAR_STARTS:
+            doubleChar = char + (src[0] if src else "")
+            if doubleChar in DOUBLE_CHARS:
+                src.pop(0)
+                tokens.append(Token(doubleChar, DOUBLE_CHARS[doubleChar]))
+            elif char in SINGLE_CHARS:
+                tokens.append(Token(char, SINGLE_CHARS[char]))
+            else:
+                logging.error(f"Unexpected character: {char}")
+                sys.exit(1)
 
-        elif char in SINGLECHARS:
-            tokens.append(Token(char, SINGLECHARS[char]))
-
-        # Build number tokens
+         # Build number tokens   
         elif char.isdigit():
-            numValue = char
+            num_value = char
             while len(src) > 0 and (src[0].isdigit() or src[0] == "."):
-                numValue += src.pop(0)
-            tokens.append(token(numValue, TokenType.Number))
+                num_value += src.pop(0)
+            tokens.append(create_token(num_value, TokenType.NUMBER))
 
         # Build identifier tokens
         elif char.isalpha() or char == "_":
-            idValue = char
+            id_value = char
             while len(src) > 0 and src[0].isalpha():
-                idValue += src.pop(0)
+                id_value += src.pop(0)
             # Check if the identifier is a keyword
-            tokenType = KEYWORDS[idValue] if idValue in KEYWORDS else TokenType.Identifier
-            tokens.append(token(idValue, tokenType))
-
+            token_type = KEYWORDS[id_value] if id_value in KEYWORDS else TokenType.IDENTIFIER
+            tokens.append(create_token(id_value, token_type))
+            
         else:
             logging.error(f"Unexpected character: {char}")
             sys.exit(1)
-
-    tokens.append(token("EndOfFile", TokenType.EOF))
+            
+    tokens.append(create_token("EndOfFile", TokenType.EOF))
     return tokens

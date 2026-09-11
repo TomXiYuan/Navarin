@@ -1,4 +1,5 @@
-from typing import cast, TYPE_CHECKING
+from runtime.values import MK_NULL, MK_BOOL, MK_NUMBER
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from runtime.values import RuntimeVal
@@ -14,7 +15,7 @@ class Environment:
         self.variables = {}
         self.constants = set()
 
-    def declareVar (self, varName: str, value: RuntimeVal, constant: bool) -> RuntimeVal:
+    def declVar(self, varName: str, value: RuntimeVal, constant: bool) -> RuntimeVal:
         if (self.variables.get(varName)):
             raise Exception(f"Variable {varName} already declared in this scope")
 
