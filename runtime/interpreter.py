@@ -1,8 +1,8 @@
 from runtime.values import RuntimeVal, NumberVal
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt
 from runtime.environment import Environment
 from runtime.eval.expressions import evalAssignmentExpr, evalIdentifier, evalBinaryExpr, evalUnaryExpr, evalFuncCallExpr
-from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt
+from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt
 from typing import cast
 import logging
 import sys
@@ -38,6 +38,9 @@ def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
 
         case NodeType.RETURN_STATEMENT:
             return evalReturnStmt(cast(ReturnStmt, astNode), env)
+
+        case NodeType.IF_STATEMENT:
+            return evalIfStmt(cast(IfStmt, astNode), env)
 
         case _:
             logging.error(f"This AST node has not been setup for interpretation: {astNode}")

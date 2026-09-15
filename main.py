@@ -4,7 +4,7 @@ from runtime.environment import Environment
 import sys
 
 def main():
-    debug()
+    run()
 
 def debug():
     parser = Parser()
@@ -15,10 +15,10 @@ def debug():
     
         if sourceCode.lower() == 'exit':
             sys.exit(0)
-    
+
         sourceCode += '\n'
         program = parser.produceAST(sourceCode)
-    
+
         result = evaluate(program, env)
         print(result)
 

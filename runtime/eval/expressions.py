@@ -7,7 +7,6 @@ from typing import cast
 import logging
 import sys
 import operator as op
-import copy
 
 NUMERIC_OPS = {
     "+": op.add,

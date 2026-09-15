@@ -8,3 +8,12 @@ func add(a,b) {
 
 var z = add(x, y);
 z;
+
+if (z + 7 == 10){
+    var y = 12;
+    x = y;
+} else if (z + 7 == 10 && y == 2) {
+    x = 11;
+}
+
+x;

@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt
 from frontend.lexer import tokenize, Token, TokenType
 from typing import cast
 import logging
@@ -43,8 +43,8 @@ class Parser:
                 return self.parseFuncDecl()
             case TokenType.RETURN:
                 return self.parseReturnStmt()
-            #case TokenType.IF:
-                #return self.parseIfStmt()
+            case TokenType.IF:
+                return self.parseIfStmt()
             case _:
                 return self.parseExpr()
 
@@ -107,6 +107,29 @@ class Parser:
 
         self.expect(TokenType.EOS, "Expected EOS token following return statement.")
         return ReturnStmt(type=NodeType.RETURN_STATEMENT, value=value)
+
+    def parseIfStmt(self) -> Stmt:
+        self.consume() # Consume if keyword
+        boolExpr = self.parseLogicExpr()
+
+        self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following if statement.")
+        thenBlock: list[Stmt] = []
+        while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
+            thenBlock.append(self.parseStmt())
+        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside if statement.")
+
+        elseBlock: list[Stmt] = []
+        if self.at().type == TokenType.ELSE:
+            self.consume() # Consume else keyword
+            if self.at().type == TokenType.IF:
+                elseBlock.append(self.parseIfStmt())
+            else:
+                self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following else statement.")
+                while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
+                    elseBlock.append(self.parseStmt())
+                self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside else statement.")
+
+        return IfStmt(boolExpr, thenBlock, elseBlock)
 
     def parseExpr(self) -> Expr:
         expr = self.parseAssignmentExpr()
@@ -187,7 +210,7 @@ class Parser:
             
             case TokenType.OPEN_PAREN:
                 self.consume()
-                value = self.parseExpr()
+                value = self.parseAssignmentExpr()
                 self.expect(TokenType.CLOSE_PAREN, "Unexpected token found inside parenthesised expression. Expected closing parenthesis.",)
                 return value
 

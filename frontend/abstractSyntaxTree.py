@@ -8,6 +8,7 @@ class NodeType(StrEnum):
     VARIABLE_DECLARATION = auto()
     FUNCTION_DECLARATION = auto()
     RETURN_STATEMENT = auto()
+    IF_STATEMENT = auto()
 
     # Expressions
     FUNCTION_CALL_EXPRESSION = auto()
@@ -47,8 +48,9 @@ class ReturnStmt(Stmt):
 @dataclass
 class IfStmt(Stmt):
     condition: Expr
-    thenBranch : Stmt
-    elseBranch: Stmt
+    thenBlock: list[Stmt]
+    elseBlock: list[Stmt]
+    type : NodeType = NodeType.IF_STATEMENT
 
 class Expr(Stmt):
     type: NodeType
