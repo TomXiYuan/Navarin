@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt
 from frontend.lexer import tokenize, Token, TokenType
 from typing import cast
 import logging
@@ -6,9 +6,11 @@ import sys
 
 class Parser:
     tokens: list[Token]
+    loopDepth: int
 
     def __init__(self) -> None:
         self.tokens: list[Token] = []
+        self.loopDepth = 0
 
     def notEOF(self) -> bool:
         return self.tokens[0].type != TokenType.EOF
@@ -45,6 +47,10 @@ class Parser:
                 return self.parseReturnStmt()
             case TokenType.IF:
                 return self.parseIfStmt()
+            case TokenType.WHILE:
+                return self.parseWhileStmt()
+            case TokenType.BREAK:
+                return self.parseBreakStmt()
             case _:
                 return self.parseExpr()
 
@@ -131,6 +137,30 @@ class Parser:
 
         return IfStmt(boolExpr, thenBlock, elseBlock)
 
+    def parseWhileStmt(self) -> Stmt:
+        self.loopDepth += 1
+        self.consume() # consume while keyword
+
+        boolExpr = self.parseLogicExpr()
+        
+        self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following while statement.")
+        body: list[Stmt] = []
+        while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
+            body.append(self.parseStmt())
+        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside while statement.")
+
+        self.loopDepth -= 1
+        return WhileStmt(boolExpr, body)
+
+    def parseBreakStmt(self) -> Stmt:
+        if self.loopDepth == 0:
+            logging.error(f"break cannot be used outside of a loop")
+            sys.exit(1)
+
+        self.consume() # consume break keyword
+        self.expect(TokenType.EOS, "Expected EOS token after break statement.")
+        return BreakStmt()
+    
     def parseExpr(self) -> Expr:
         expr = self.parseAssignmentExpr()
         # Exprs must consume a EOS if they are acting as a statement

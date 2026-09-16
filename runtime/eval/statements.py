@@ -1,6 +1,6 @@
 from runtime.values import RuntimeVal, MK_NULL, FuncVal, BoolVal
 import runtime.interpreter as interpreter
-from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt, IfStmt
+from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt, IfStmt, WhileStmt, BreakStmt
 from runtime.environment import Environment
 from dataclasses import dataclass
 from typing import cast
@@ -33,15 +33,14 @@ def evalReturnStmt(returnStmt: ReturnStmt, env: Environment):
     raise Return(value)
 
 def evalIfStmt(ifStmt: IfStmt, env: Environment) -> RuntimeVal:
-    val = interpreter.evaluate(ifStmt.condition, env)
-    if not isinstance(val, BoolVal):
-        logging.error(f"Expected boolean value, got {val}")
+    conditionVal = interpreter.evaluate(ifStmt.condition, env)
+    # Condition must be a boolean type
+    if not isinstance(conditionVal, BoolVal):
+        logging.error(f"Expected boolean value in if condition, got {conditionVal}")
         sys.exit(1)
 
-    boolVal = cast(BoolVal, val)
     ifEnv = Environment(env)
-
-    if(boolVal.value):
+    if(conditionVal.value):
         for stmt in ifStmt.thenBlock:
             interpreter.evaluate(stmt, ifEnv)
     else:
@@ -50,10 +49,34 @@ def evalIfStmt(ifStmt: IfStmt, env: Environment) -> RuntimeVal:
 
     return MK_NULL()
 
+def evalWhileStmt(whileStmt: WhileStmt, env: Environment) -> RuntimeVal:
+    whileEnv = Environment(env)
+    while True:
+        conditionVal = interpreter.evaluate(whileStmt.condition, whileEnv)
+
+        if not isinstance(conditionVal, BoolVal):
+            logging.error(f"Expected boolean value in loop condition, got {conditionVal}")
+            sys.exit(1)
+
+        if not conditionVal.value:
+            break
+
+        try:
+            for stmt in whileStmt.body:
+                interpreter.evaluate(stmt, whileEnv)
+        except Break:
+            return MK_NULL()
+
+    return MK_NULL()
+
+def evalBreakStmt(breakStmt: BreakStmt, env: Environment):
+    raise Break()
 
 @dataclass
 class Return(Exception):
     Value: RuntimeVal
 
-
+@dataclass
+class Break(Exception):
+    pass
 

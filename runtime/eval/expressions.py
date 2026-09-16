@@ -4,9 +4,9 @@ from runtime.eval.statements import Return
 import runtime.interpreter as interpreter
 from runtime.environment import Environment
 from typing import cast
+import operator as op
 import logging
 import sys
-import operator as op
 
 NUMERIC_OPS = {
     "+": op.add,

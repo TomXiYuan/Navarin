@@ -1,8 +1,8 @@
 from runtime.values import RuntimeVal, NumberVal
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt
 from runtime.environment import Environment
 from runtime.eval.expressions import evalAssignmentExpr, evalIdentifier, evalBinaryExpr, evalUnaryExpr, evalFuncCallExpr
-from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt
+from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt, evalWhileStmt, evalBreakStmt
 from typing import cast
 import logging
 import sys
@@ -41,6 +41,12 @@ def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
 
         case NodeType.IF_STATEMENT:
             return evalIfStmt(cast(IfStmt, astNode), env)
+
+        case NodeType.WHILE_STATEMENT:
+            return evalWhileStmt(cast(WhileStmt, astNode), env)
+
+        case NodeType.BREAK_STATEMENT:
+            return evalBreakStmt(cast(BreakStmt, astNode), env)
 
         case _:
             logging.error(f"This AST node has not been setup for interpretation: {astNode}")

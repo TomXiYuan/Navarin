@@ -9,7 +9,7 @@ def main():
 def debug():
     parser = Parser()
     env = Environment(parent = None)
-        
+
     while(True):
         sourceCode = input("> ")
     

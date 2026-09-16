@@ -29,6 +29,8 @@ class TokenType(IntEnum):
     RETURN = auto()
     IF = auto()
     ELSE = auto()
+    WHILE = auto()
+    BREAK = auto()
     
     # End of file
     EOF = auto()
@@ -40,7 +42,9 @@ KEYWORDS = {
     "func": TokenType.FUNC,
     "return": TokenType.RETURN,
     "if": TokenType.IF,
-    "else": TokenType.ELSE
+    "else": TokenType.ELSE,
+    "while": TokenType.WHILE,
+    "break": TokenType.BREAK
 }
 
 SINGLE_CHARS = {
