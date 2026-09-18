@@ -11,6 +11,7 @@ class NodeType(StrEnum):
     IF_STATEMENT = auto()
     WHILE_STATEMENT = auto()
     BREAK_STATEMENT = auto()
+    BLOCK_STATEMENT = auto()
 
     # Expressions
     FUNCTION_CALL_EXPRESSION = auto()
@@ -39,7 +40,7 @@ class VarDecl(Stmt):
 class FuncDecl(Stmt):
     identifier : str
     parameters: list[str]
-    body : list[Stmt]
+    body : BlockStmt
     type : NodeType = NodeType.FUNCTION_DECLARATION
 
 @dataclass
@@ -50,18 +51,24 @@ class ReturnStmt(Stmt):
 @dataclass
 class IfStmt(Stmt):
     condition: Expr
-    thenBlock: list[Stmt]
-    elseBlock: list[Stmt]
+    thenBlock: BlockStmt
+    elseBlock: BlockStmt
     type : NodeType = NodeType.IF_STATEMENT
 
 @dataclass
 class WhileStmt(Stmt):
     condition: Expr
-    body: list[Stmt]
+    body: BlockStmt
     type : NodeType = NodeType.WHILE_STATEMENT
 
+@dataclass
 class BreakStmt(Stmt):
-    type = NodeType = NodeType.BREAK_STATEMENT
+    type: NodeType = NodeType.BREAK_STATEMENT
+
+@dataclass
+class BlockStmt(Stmt):
+    body: list[Stmt]
+    type: NodeType = NodeType.BLOCK_STATEMENT
 
 class Expr(Stmt):
     type: NodeType

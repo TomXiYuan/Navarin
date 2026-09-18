@@ -1,8 +1,8 @@
 from runtime.values import RuntimeVal, NumberVal
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt, BlockStmt
 from runtime.environment import Environment
 from runtime.eval.expressions import evalAssignmentExpr, evalIdentifier, evalBinaryExpr, evalUnaryExpr, evalFuncCallExpr
-from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt, evalWhileStmt, evalBreakStmt
+from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt, evalWhileStmt, evalBreakStmt, evalBlockStmt
 from typing import cast
 import logging
 import sys
@@ -46,7 +46,10 @@ def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
             return evalWhileStmt(cast(WhileStmt, astNode), env)
 
         case NodeType.BREAK_STATEMENT:
-            return evalBreakStmt(cast(BreakStmt, astNode), env)
+            return evalBreakStmt()
+
+        case NodeType.BLOCK_STATEMENT:
+            return evalBlockStmt(cast(BlockStmt, astNode), env)
 
         case _:
             logging.error(f"This AST node has not been setup for interpretation: {astNode}")

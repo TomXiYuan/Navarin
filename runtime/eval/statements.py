@@ -1,6 +1,6 @@
 from runtime.values import RuntimeVal, MK_NULL, FuncVal, BoolVal
 import runtime.interpreter as interpreter
-from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt, IfStmt, WhileStmt, BreakStmt
+from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt, IfStmt, WhileStmt, BreakStmt, BlockStmt
 from runtime.environment import Environment
 from dataclasses import dataclass
 from typing import cast
@@ -41,11 +41,9 @@ def evalIfStmt(ifStmt: IfStmt, env: Environment) -> RuntimeVal:
 
     ifEnv = Environment(env)
     if(conditionVal.value):
-        for stmt in ifStmt.thenBlock:
-            interpreter.evaluate(stmt, ifEnv)
+        interpreter.evaluate(ifStmt.thenBlock, ifEnv)
     else:
-        for stmt in ifStmt.elseBlock:
-            interpreter.evaluate(stmt, ifEnv)
+        interpreter.evaluate(ifStmt.elseBlock, ifEnv)
 
     return MK_NULL()
 
@@ -62,15 +60,20 @@ def evalWhileStmt(whileStmt: WhileStmt, env: Environment) -> RuntimeVal:
             break
 
         try:
-            for stmt in whileStmt.body:
-                interpreter.evaluate(stmt, whileEnv)
+            interpreter.evaluate(whileStmt.body, whileEnv)
         except Break:
             return MK_NULL()
 
     return MK_NULL()
 
-def evalBreakStmt(breakStmt: BreakStmt, env: Environment):
+def evalBreakStmt():
     raise Break()
+
+def evalBlockStmt(blockStmt: BlockStmt, env: Environment) -> RuntimeVal:
+    blockEnv = Environment(parent=env)
+    for stmt in blockStmt.body:
+        interpreter.evaluate(stmt, blockEnv)
+    return MK_NULL()
 
 @dataclass
 class Return(Exception):

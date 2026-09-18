@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt
+from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt, BlockStmt
 from frontend.lexer import tokenize, Token, TokenType
 from typing import cast
 import logging
@@ -30,7 +30,7 @@ class Parser:
 
     def produceAST(self, sourceCode: str) -> Program:
         self.tokens = tokenize(sourceCode)
-        program: Program = Program(type = NodeType.PROGRAM, body = [])
+        program: Program = Program(body = [])
 
         while self.notEOF():
             program.body.append(self.parseStmt())
@@ -51,6 +51,8 @@ class Parser:
                 return self.parseWhileStmt()
             case TokenType.BREAK:
                 return self.parseBreakStmt()
+            case TokenType.FOR:
+                return self.parseForStmt()
             case _:
                 return self.parseExpr()
 
@@ -63,12 +65,12 @@ class Parser:
             if isConstant:
                 logging.error(f"Constant variable '{identifier}' must be initialized.")
                 sys.exit(1)
-            return VarDecl(type=NodeType.VARIABLE_DECLARATION, constant=False, identifier=identifier)
+            return VarDecl(constant=False, identifier=identifier)
 
         self.expect(TokenType.EQUALS, "Expected Equals token following identifier in var declaration.")
         value = self.parseAssignmentExpr()
         self.expect(TokenType.EOS, "Expected end of statement token following variable declaration.")
-        varDeclaration = VarDecl(type=NodeType.VARIABLE_DECLARATION, constant=isConstant, identifier=identifier, value=value)
+        varDeclaration = VarDecl(constant=isConstant, identifier=identifier, value=value)
         return varDeclaration
 
     def parseFuncDecl(self) -> Stmt:
@@ -83,13 +85,13 @@ class Parser:
             params.append(cast(Identifier, arg).symbol)
 
         self.expect(TokenType.OPEN_BRACE, "Expected function body following declaration.")
-        body: list[Stmt] = []
+        blockStmt = BlockStmt(body=[])
 
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
-            body.append(self.parseStmt())
+            blockStmt.body.append(self.parseStmt())
 
         self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside function declaration")
-        func = FuncDecl(identifier = identifier, parameters = params, body = body, type = NodeType.FUNCTION_DECLARATION)
+        func = FuncDecl(identifier=identifier, parameters=params, body=blockStmt)
         return func
 
     def parseArguments(self) -> list[Expr]:
@@ -112,54 +114,97 @@ class Parser:
             value = self.parseAssignmentExpr()
 
         self.expect(TokenType.EOS, "Expected EOS token following return statement.")
-        return ReturnStmt(type=NodeType.RETURN_STATEMENT, value=value)
+        return ReturnStmt(value=value)
 
     def parseIfStmt(self) -> Stmt:
         self.consume() # Consume if keyword
         boolExpr = self.parseLogicExpr()
 
         self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following if statement.")
-        thenBlock: list[Stmt] = []
+        thenBlock = BlockStmt([])
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
-            thenBlock.append(self.parseStmt())
+            thenBlock.body.append(self.parseStmt())
         self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside if statement.")
 
-        elseBlock: list[Stmt] = []
+        elseBlock = BlockStmt([])
         if self.at().type == TokenType.ELSE:
             self.consume() # Consume else keyword
             if self.at().type == TokenType.IF:
-                elseBlock.append(self.parseIfStmt())
+                elseBlock.body.append(self.parseIfStmt())
             else:
                 self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following else statement.")
                 while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
-                    elseBlock.append(self.parseStmt())
+                    elseBlock.body.append(self.parseStmt())
                 self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside else statement.")
 
-        return IfStmt(boolExpr, thenBlock, elseBlock)
+        return IfStmt(condition=boolExpr, thenBlock=thenBlock, elseBlock=elseBlock)
 
     def parseWhileStmt(self) -> Stmt:
-        self.loopDepth += 1
-        self.consume() # consume while keyword
+        self.consume() # Consume while keyword
 
-        boolExpr = self.parseLogicExpr()
+        conditionExpr = self.parseLogicExpr()
         
         self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following while statement.")
-        body: list[Stmt] = []
+        self.loopDepth += 1
+        blockStmt = BlockStmt([])
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
-            body.append(self.parseStmt())
+            blockStmt.body.append(self.parseStmt())
         self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside while statement.")
-
         self.loopDepth -= 1
-        return WhileStmt(boolExpr, body)
+        
+        return WhileStmt(condition=conditionExpr, body=blockStmt)
 
     def parseBreakStmt(self) -> Stmt:
         if self.loopDepth == 0:
             logging.error(f"break cannot be used outside of a loop")
             sys.exit(1)
 
-        self.consume() # consume break keyword
+        self.consume() # Consume break keyword
         self.expect(TokenType.EOS, "Expected EOS token after break statement.")
         return BreakStmt()
+
+    def parseForStmt(self) -> Stmt:
+        self.consume() # Consume for keyword
+
+        hasParens = self.at().type == TokenType.OPEN_PAREN
+        if hasParens:
+            self.consume()
+
+        initializer: Stmt | None = None
+        if self.at().type == TokenType.EOS:
+            self.consume()
+        elif self.at().type in (TokenType.VAR, TokenType.CONST):
+            initializer = self.parseVarDecl()
+        else:
+            initializer = self.parseExpr()
+        
+        conditionExpr = self.parseLogicExpr()
+        self.expect(TokenType.EOS, "Expected EOS Token after loop condition")
+
+        incrementExpr: Expr | None = None
+        if self.at().type != TokenType.CLOSE_PAREN:
+            incrementExpr = self.parseAssignmentExpr()
+
+        if hasParens:
+            self.expect(TokenType.CLOSE_PAREN, "Expected closing parenthesis to match opening parenthesis in for-loop.")
+
+        self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following while statement.")
+        self.loopDepth += 1
+        blockStmt = BlockStmt([])
+        while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
+            blockStmt.body.append(self.parseStmt())
+        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside while statement.")
+        self.loopDepth -= 1
+
+        if incrementExpr is not None:
+            blockStmt.body.append(incrementExpr)
+
+        whileStmt = WhileStmt(condition=conditionExpr, body=blockStmt)
+
+        if initializer is not None:
+            return BlockStmt(body=[initializer, whileStmt])
+
+        return whileStmt
     
     def parseExpr(self) -> Expr:
         expr = self.parseAssignmentExpr()
@@ -180,7 +225,7 @@ class Parser:
                 logging.error(f"Invalid assignment target: expected Identifier, got {left.type}")
                 sys.exit(1)
 
-            left = AssignmentExpr(left, right, type = NodeType.ASSIGNMENT_EXPRESSION)
+            left = AssignmentExpr(assigne=left, value=right)
 
         return left
 
@@ -189,7 +234,7 @@ class Parser:
         while self.notEOF() and self.at().value in operators:
             operator = self.consume().value
             right = downstreamParser()
-            left = BinaryExpr(type=NodeType.BINARY_EXPRESSION, left=left, right=right, operator=operator)
+            left = BinaryExpr(left=left, right=right, operator=operator)
         return left
 
     def parseLogicExpr(self) -> Expr:
@@ -209,14 +254,14 @@ class Parser:
         if self.at().type == TokenType.UNARY_OPERATOR:
             operator = self.consume().value
             operand = self.parseFuncCallExpr()
-            return UnaryExpr(operand, operator, isPrefix= True, type=NodeType.UNARY_EXPRESSION)
+            return UnaryExpr(operand=operand, operator=operator, isPrefix=True)
 
         expr = self.parseFuncCallExpr()
 
         #Postfix
         if self.at().type == TokenType.UNARY_OPERATOR:
             operator = self.consume().value
-            return UnaryExpr(expr, operator, isPrefix= False, type=NodeType.UNARY_EXPRESSION)
+            return UnaryExpr(operand=expr, operator=operator, isPrefix=False)
 
         return expr
 
@@ -225,7 +270,7 @@ class Parser:
 
         if self.at().type == TokenType.OPEN_PAREN:
             caller = cast(Expr, expr)
-            expr = FuncCallExpr(caller=caller, args=self.parseArguments(), type= NodeType.FUNCTION_CALL_EXPRESSION)
+            expr = FuncCallExpr(caller=caller, args=self.parseArguments())
 
         return cast(Expr, expr)
 
@@ -233,10 +278,10 @@ class Parser:
         tk = self.at().type
         match tk:
             case TokenType.IDENTIFIER:
-                return Identifier(type=NodeType.IDENTIFIER, symbol=self.consume().value)
+                return Identifier(symbol=self.consume().value)
             
             case TokenType.NUMBER:
-                return NumericLiteral(type=NodeType.NUMERIC_LITERAL, value=float(self.consume().value))
+                return NumericLiteral(value=float(self.consume().value))
             
             case TokenType.OPEN_PAREN:
                 self.consume()

@@ -1,4 +1,4 @@
-from frontend.abstractSyntaxTree import Stmt
+from frontend.abstractSyntaxTree import Stmt, BlockStmt
 from dataclasses import dataclass
 from typing import Protocol, Literal, TYPE_CHECKING
 
@@ -39,5 +39,5 @@ class FuncVal(RuntimeVal):
     name: str
     parameters: list[str]
     declarationEnv: Environment
-    body: list[Stmt]
+    body: BlockStmt
     type: ValueType = "function"

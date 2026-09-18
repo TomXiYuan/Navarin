@@ -31,6 +31,7 @@ class TokenType(IntEnum):
     ELSE = auto()
     WHILE = auto()
     BREAK = auto()
+    FOR = auto()
     
     # End of file
     EOF = auto()
@@ -44,7 +45,8 @@ KEYWORDS = {
     "if": TokenType.IF,
     "else": TokenType.ELSE,
     "while": TokenType.WHILE,
-    "break": TokenType.BREAK
+    "break": TokenType.BREAK,
+    "for": TokenType.FOR
 }
 
 SINGLE_CHARS = {

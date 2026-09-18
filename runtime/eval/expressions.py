@@ -1,6 +1,6 @@
 from runtime.values import RuntimeVal, NumberVal, FuncVal, BoolVal, MK_NUMBER, MK_NULL, MK_BOOL
 from frontend.abstractSyntaxTree import NodeType, BinaryExpr, Identifier, AssignmentExpr, FuncCallExpr, UnaryExpr
-from runtime.eval.statements import Return
+from runtime.eval.statements import Return, evalBlockStmt
 import runtime.interpreter as interpreter
 from runtime.environment import Environment
 from typing import cast
@@ -146,8 +146,7 @@ def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment) -> RuntimeVal:
         funcEnv.declVar(paramName, interpreter.evaluate(paramArg, env), False)
 
     try:
-        for stmt in funcVal.body:
-            interpreter.evaluate(stmt, funcEnv)
+        evalBlockStmt(funcVal.body, funcEnv)
     except Return as returnSignal:
         return returnSignal.Value
 
