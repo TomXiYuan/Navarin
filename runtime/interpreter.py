@@ -1,16 +1,59 @@
-from runtime.values import RuntimeVal, NumberVal
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt, BlockStmt
-from runtime.environment import Environment
-from runtime.eval.expressions import evalAssignmentExpr, evalIdentifier, evalBinaryExpr, evalUnaryExpr, evalFuncCallExpr
-from runtime.eval.statements import evalProgram, evalVarDecl, evalFuncDecl, evalReturnStmt, evalIfStmt, evalWhileStmt, evalBreakStmt, evalBlockStmt
-from typing import cast
 import logging
 import sys
+from typing import cast
+
+from frontend.abstractSyntaxTree import (
+    AssignmentExpr,
+    BinaryExpr,
+    BlockStmt,
+    BooleanLiteral,
+    FuncCallExpr,
+    FuncDecl,
+    Identifier,
+    IfStmt,
+    NodeType,
+    NullLiteral,
+    NumericLiteral,
+    Program,
+    ReturnStmt,
+    Stmt,
+    UnaryExpr,
+    VarDecl,
+    WhileStmt,
+)
+from runtime.environment import Environment
+from runtime.eval.expressions import (
+    evalAssignmentExpr,
+    evalBinaryExpr,
+    evalFuncCallExpr,
+    evalIdentifier,
+    evalUnaryExpr,
+)
+from runtime.eval.statements import (
+    evalBlockStmt,
+    evalBreakStmt,
+    evalFuncDecl,
+    evalIfStmt,
+    evalProgram,
+    evalReturnStmt,
+    evalVarDecl,
+    evalWhileStmt,
+)
+from runtime.values import RuntimeVal, MK_BOOL, MK_NULL, MK_NUMBER
 
 def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
     match astNode.type:
         case NodeType.NUMERIC_LITERAL:
-            return NumberVal(type = "number", value = cast(NumericLiteral, astNode).value)
+            return MK_NUMBER(value=cast(NumericLiteral, astNode).value)
+
+        case NodeType.BOOLEAN_LITERAL:
+            return MK_BOOL(value=cast(BooleanLiteral, astNode).value)
+
+        case NodeType.NULL_LITERAL:
+            return MK_NULL()
+
+        case NodeType.BOOLEAN_LITERAL:
+            return MK_NULL(value=cast(NullLiteral, astNode).value)
 
         case NodeType.IDENTIFIER:
             return evalIdentifier(cast(Identifier, astNode), env)

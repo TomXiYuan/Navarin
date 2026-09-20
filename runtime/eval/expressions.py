@@ -1,12 +1,28 @@
-from runtime.values import RuntimeVal, NumberVal, FuncVal, BoolVal, MK_NUMBER, MK_NULL, MK_BOOL
-from frontend.abstractSyntaxTree import NodeType, BinaryExpr, Identifier, AssignmentExpr, FuncCallExpr, UnaryExpr
+import logging
+import sys
+import operator as op
+
+from runtime.values import (
+    RuntimeVal, 
+    IntVal, 
+    FloatVal, 
+    FuncVal,
+    NativeFuncVal, 
+    BoolVal, 
+    MK_NUMBER, 
+    MK_NULL, 
+    MK_BOOL
+)
+from frontend.abstractSyntaxTree import (
+    BinaryExpr, 
+    Identifier, 
+    AssignmentExpr, 
+    FuncCallExpr, 
+    UnaryExpr
+)
 from runtime.eval.statements import Return, evalBlockStmt
 import runtime.interpreter as interpreter
 from runtime.environment import Environment
-from typing import cast
-import operator as op
-import logging
-import sys
 
 NUMERIC_OPS = {
     "+": op.add,
@@ -25,7 +41,7 @@ COMPARISON_OPS = {
 }
 
 LOGICAL_OPS = {"&&", "||"}
-UNARY_NUMERIC_OPS = {"++", "--"}
+UNARY_NUMERIC_OPS = {"++", "--", "+", "-"}
 
 def evalBinaryExpr(expr: BinaryExpr, env: Environment) -> RuntimeVal:
     operator = expr.operator
@@ -34,16 +50,13 @@ def evalBinaryExpr(expr: BinaryExpr, env: Environment) -> RuntimeVal:
     if operator in LOGICAL_OPS:
         return evalLogicalBinaryExpr(expr, env)
 
-    leftHand = interpreter.evaluate(expr.left, env)
-    rightHand = interpreter.evaluate(expr.right, env)
+    left = interpreter.evaluate(expr.left, env)
+    right = interpreter.evaluate(expr.right, env)
 
-    if operator in NUMERIC_OPS:
-        return evalNumericBinaryExpr(cast(NumberVal, leftHand), cast(NumberVal, rightHand), operator)
+    if isinstance(left, IntVal | FloatVal) and isinstance(right, IntVal | FloatVal):
+        return evalNumericBinaryExpr(left, right, operator)
 
-    elif operator in COMPARISON_OPS:
-        return evalComparisonExpr(cast(NumberVal, leftHand), cast(NumberVal, rightHand), operator)
-
-    logging.error(f"Unknown operator: {operator}")
+    logging.error(f"Cannot perform binary operation between {left.type} and {right.type}.")
     sys.exit(1)
 
 def evalLogicalBinaryExpr(binop: BinaryExpr, env: Environment) -> BoolVal:
@@ -76,78 +89,108 @@ def evalLogicalBinaryExpr(binop: BinaryExpr, env: Environment) -> BoolVal:
     logging.error(f"Unknown logical operator: {binop.operator}")
     sys.exit(1)
 
-def evalNumericBinaryExpr(leftHand: NumberVal, rightHand: NumberVal, operator: str) -> NumberVal:
-    if operator in ("/", "%") and rightHand.value == 0:
+def evalNumericBinaryExpr(left: IntVal | FloatVal, right: IntVal | FloatVal, operator: str) -> RuntimeVal:
+    if operator in ("/", "%") and right.value == 0:
         operation = "divide" if operator == "/" else "modulo"
         logging.error(f"Cannot {operation} by zero")
         sys.exit(1)
 
-    result = NUMERIC_OPS[operator](leftHand.value, rightHand.value)
-    return MK_NUMBER(result)
+    if operator in NUMERIC_OPS:
+        result = NUMERIC_OPS[operator](left.value, right.value)
+        return MK_NUMBER(result)
 
-def evalComparisonExpr(leftHand: NumberVal, rightHand: NumberVal, operator: str) -> BoolVal:
-    result = COMPARISON_OPS[operator](leftHand.value, rightHand.value)
-    return MK_BOOL(result)
+    if operator in COMPARISON_OPS:
+        result = COMPARISON_OPS[operator](left.value, right.value)
+        return MK_BOOL(result)
+
+    logging.error(f"Operator '{operator}' is not supported between numbers")
+    sys.exit(1)
 
 def evalUnaryExpr(expr: UnaryExpr, env: Environment) -> RuntimeVal:
     operator = expr.operator
 
     if operator == "!":
-        operand = interpreter.evaluate(expr.operand, env)
-        if not isinstance(operand, BoolVal):
-            logging.error(f"Type mismatch: '!' requires a boolean, got {operand.type}")
+        operandVal = interpreter.evaluate(expr.operand, env)
+        if not isinstance(operandVal, BoolVal):
+            logging.error(f"Type mismatch: '!' requires a boolean, got {operandVal.type}")
             sys.exit(1)
-        return MK_BOOL(not operand.value)
+        return MK_BOOL(not operandVal.value)
 
-    if operator in UNARY_NUMERIC_OPS:
-        if expr.operand.type != NodeType.IDENTIFIER:
+    operandVal = interpreter.evaluate(expr.operand, env)
+
+    if operator in ("+", "-"):
+        if not isinstance(operandVal, IntVal | FloatVal):
+            logging.error(f"Type mismatch: '{operator}' requires a number, got {operandVal.type}")
+            sys.exit(1)
+            
+        if operator == "+":
+            return MK_NUMBER(operandVal.value)
+        elif operator == "-":
+            return MK_NUMBER(-operandVal.value)
+
+    if operator in ("++", "--"):
+        # Operators ++ and -- can only be used on variables
+        if not isinstance(expr.operand, Identifier):
             logging.error(f"Invalid operand for '{operator}': expected Identifier, got {expr.operand.type}")
             sys.exit(1)
 
-        varName = cast(Identifier, expr.operand).symbol
-        current = env.lookupVar(varName)
-
-        if not isinstance(current, NumberVal):
-            logging.error(f"Type mismatch: '{operator}' requires a number, got {current.type}")
+        varName = expr.operand.symbol
+        
+        if not isinstance(operandVal, IntVal | FloatVal):
+            logging.error(f"Type mismatch: '{operator}' requires a number, got {operandVal.type}")
             sys.exit(1)
 
-        oldValue = MK_NUMBER(current.value)
-        newValue = MK_NUMBER(current.value + 1 if operator == "++" else current.value - 1)
-        env.assignVar(varName, newValue)
+        oldVal = MK_NUMBER(operandVal.value)
+        
+        if operator == "++":
+            newVal = MK_NUMBER(operandVal.value + 1)
+        else:
+            newVal = MK_NUMBER(operandVal.value - 1)
+        
+        env.assignVar(varName, newVal)
 
-        return newValue if expr.isPrefix else oldValue
+        return newVal if expr.isPrefix else oldVal
 
     logging.error(f"Unknown unary operator: {operator}")
     sys.exit(1)
 
-def evalAssignmentExpr(node: AssignmentExpr, env : Environment) -> RuntimeVal:
-    if node.assigne.type != NodeType.IDENTIFIER:
-        raise Exception(f"Invalid LHS inside assignment expression: {node.assigne}")
 
-    varName = cast(Identifier, node.assigne).symbol
-    return env.assignVar(varName, interpreter.evaluate(node.value, env))
+def evalAssignmentExpr(expr: AssignmentExpr, env : Environment) -> RuntimeVal:
+    if not isinstance(expr.assigne, Identifier):
+        raise Exception(f"Invalid LHS inside assignment expression: {expr.assigne}")
+
+    varName = expr.assigne.symbol
+    return env.assignVar(varName, interpreter.evaluate(expr.value, env))
 
 def evalIdentifier(identifier: Identifier, env: Environment) -> RuntimeVal:
     val = env.lookupVar(identifier.symbol)
     return val
 
 def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment) -> RuntimeVal:
-    funcVal = cast(FuncVal, env.lookupVar(cast(Identifier, funcCall.caller).symbol))
-    funcEnv = Environment(env)
+    args = [interpreter.evaluate(arg, env) for arg in funcCall.args]
+    calleeVal = interpreter.evaluate(funcCall.callee, env)
 
-    params = funcVal.parameters
-    if len(funcCall.args) != len(params):
-        logging.error(f"Function expected {len(params)} argument(s), got {len(funcCall.args)}.")
-        sys.exit(1)
-    
-    for i in range(len(params)):
-        paramName: str = params[i]
-        paramArg = funcCall.args[i]
-        funcEnv.declVar(paramName, interpreter.evaluate(paramArg, env), False)
+    if isinstance(calleeVal, NativeFuncVal):
+        return calleeVal.call(args, env)
 
-    try:
-        evalBlockStmt(funcVal.body, funcEnv)
-    except Return as returnSignal:
-        return returnSignal.Value
+    if isinstance(calleeVal, FuncVal):
+        funcVal = calleeVal
+        funcEnv = Environment(funcVal.declEnv)
 
-    return MK_NULL()
+        params = funcVal.params
+        if len(args) != len(params):
+            logging.error(f"Function expected {len(params)} argument(s), got {len(args)}.")
+            sys.exit(1)
+
+        for i in range(len(params)):
+            funcEnv.declVar(params[i], args[i], False)
+
+        try:
+            evalBlockStmt(funcVal.body, funcEnv)
+        except Return as returnSignal:
+            return returnSignal.value
+
+        return MK_NULL()
+
+    logging.error(f"Cannot call value that is not a function: {calleeVal}")
+    sys.exit(1)

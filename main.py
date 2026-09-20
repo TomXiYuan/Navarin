@@ -16,11 +16,8 @@ def debug():
         if sourceCode.lower() == 'exit':
             sys.exit(0)
 
-        sourceCode += '\n'
         program = parser.produceAST(sourceCode)
-
-        result = evaluate(program, env)
-        print(result)
+        evaluate(program, env)
 
 def run():
     parser = Parser()
@@ -30,8 +27,7 @@ def run():
         sourceCode = file.read() 
     
     program = parser.produceAST(sourceCode)
-    result = evaluate(program, env)
-    print(result)
+    evaluate(program, env)
 
 if __name__ == "__main__":
     main()

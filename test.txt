@@ -15,12 +15,15 @@ while z < 10 {
     }
 }
 
-z = 0;
+z = 13;
 for (var i = 0; i < 10; i++) {
+    var z = 0;
     if (i == 3) {
         break;
     }
     z++;
 }
 
-z;
+z = -1;
+
+println(-z);

@@ -1,11 +1,19 @@
-from runtime.values import RuntimeVal, MK_NULL, FuncVal, BoolVal
-import runtime.interpreter as interpreter
-from frontend.abstractSyntaxTree import Program, VarDecl, FuncDecl, ReturnStmt, IfStmt, WhileStmt, BreakStmt, BlockStmt
-from runtime.environment import Environment
-from dataclasses import dataclass
-from typing import cast
 import logging
 import sys
+from dataclasses import dataclass
+
+from runtime.values import RuntimeVal, FuncVal, BoolVal, MK_NULL
+import runtime.interpreter as interpreter
+from frontend.abstractSyntaxTree import (
+    Program, 
+    VarDecl, 
+    FuncDecl, 
+    ReturnStmt, 
+    IfStmt, 
+    WhileStmt, 
+    BlockStmt
+)
+from runtime.environment import Environment
 
 def evalProgram(program: Program, env: Environment) -> RuntimeVal:
     lastEvaluated: RuntimeVal = MK_NULL()
@@ -23,8 +31,8 @@ def evalVarDecl(varDecl: VarDecl, env: Environment) -> RuntimeVal:
     return env.declVar(varDecl.identifier, value, varDecl.constant)
 
 def evalFuncDecl(funcDecl: FuncDecl, env: Environment) -> RuntimeVal:
-    func = FuncVal(name=funcDecl.identifier, parameters = funcDecl.parameters, declarationEnv = env, body = funcDecl.body)
-    return env.declVar(funcDecl.identifier, func, False)
+    funcVal = FuncVal(name=funcDecl.identifier, params = funcDecl.parameters, declEnv = env, body = funcDecl.body)
+    return env.declVar(funcDecl.identifier, funcVal, False)
 
 def evalReturnStmt(returnStmt: ReturnStmt, env: Environment):
     value = MK_NULL()
@@ -77,9 +85,8 @@ def evalBlockStmt(blockStmt: BlockStmt, env: Environment) -> RuntimeVal:
 
 @dataclass
 class Return(Exception):
-    Value: RuntimeVal
+    value: RuntimeVal
 
 @dataclass
 class Break(Exception):
     pass
-

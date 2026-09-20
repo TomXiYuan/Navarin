@@ -1,5 +1,5 @@
-from runtime.values import MK_NULL, MK_BOOL, MK_NUMBER
 from typing import TYPE_CHECKING
+from runtime.builtins import setupGlobalEnv
 
 if TYPE_CHECKING:
     from runtime.values import RuntimeVal
@@ -10,10 +10,12 @@ class Environment:
     constants : set[str]
 
     def __init__(self, parent: Environment | None):
-        isGlobal = parent is None
         self.parent = parent
         self.variables = {}
         self.constants = set()
+
+        if parent == None:
+            setupGlobalEnv(self)
 
     def declVar(self, varName: str, value: RuntimeVal, constant: bool) -> RuntimeVal:
         if (self.variables.get(varName)):

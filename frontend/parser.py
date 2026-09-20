@@ -1,8 +1,29 @@
-from frontend.abstractSyntaxTree import NodeType, Stmt, Program, Expr, BinaryExpr, Identifier, NumericLiteral, VarDecl, AssignmentExpr, FuncDecl, FuncCallExpr, ReturnStmt, UnaryExpr, IfStmt, WhileStmt, BreakStmt, BlockStmt
-from frontend.lexer import tokenize, Token, TokenType
-from typing import cast
 import logging
 import sys
+from typing import cast
+
+from frontend.abstractSyntaxTree import (
+    NodeType,
+    Stmt,
+    Program,
+    Expr,
+    BinaryExpr,
+    Identifier,
+    NumericLiteral,
+    NullLiteral, 
+    BooleanLiteral,
+    VarDecl, 
+    AssignmentExpr, 
+    FuncDecl, 
+    FuncCallExpr, 
+    ReturnStmt, 
+    UnaryExpr, 
+    IfStmt, 
+    WhileStmt, 
+    BreakStmt, 
+    BlockStmt
+)
+from frontend.lexer import tokenize, Token, TokenType
 
 class Parser:
     tokens: list[Token]
@@ -81,7 +102,8 @@ class Parser:
 
         for arg in args:
             if arg.type != NodeType.IDENTIFIER:
-                raise Exception(f"Inside function declaration expected parameters to be of token type Identifier.")
+                logging.error(f"Inside function declaration expected parameters to be of token type Identifier.")
+                sys.exit(1)
             params.append(cast(Identifier, arg).symbol)
 
         self.expect(TokenType.OPEN_BRACE, "Expected function body following declaration.")
@@ -124,7 +146,7 @@ class Parser:
         thenBlock = BlockStmt([])
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
             thenBlock.body.append(self.parseStmt())
-        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside if statement.")
+        self.expect(TokenType.CLOSE_BRACE, "Closing Brace expected inside if statement.")
 
         elseBlock = BlockStmt([])
         if self.at().type == TokenType.ELSE:
@@ -135,7 +157,7 @@ class Parser:
                 self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following else statement.")
                 while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
                     elseBlock.body.append(self.parseStmt())
-                self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside else statement.")
+                self.expect(TokenType.CLOSE_BRACE, "Closing Brace expected inside else statement.")
 
         return IfStmt(condition=boolExpr, thenBlock=thenBlock, elseBlock=elseBlock)
 
@@ -149,7 +171,7 @@ class Parser:
         blockStmt = BlockStmt([])
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
             blockStmt.body.append(self.parseStmt())
-        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside while statement.")
+        self.expect(TokenType.CLOSE_BRACE, "Closing Brace expected inside while statement.")
         self.loopDepth -= 1
         
         return WhileStmt(condition=conditionExpr, body=blockStmt)
@@ -188,12 +210,12 @@ class Parser:
         if hasParens:
             self.expect(TokenType.CLOSE_PAREN, "Expected closing parenthesis to match opening parenthesis in for-loop.")
 
-        self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following while statement.")
+        self.expect(TokenType.OPEN_BRACE, "Expected Opening Brace following for statement.")
         self.loopDepth += 1
         blockStmt = BlockStmt([])
         while (self.at().type != TokenType.EOF and self.at().type != TokenType.CLOSE_BRACE):
             blockStmt.body.append(self.parseStmt())
-        self.expect(TokenType.CLOSE_BRACE, "Closing brace expected inside while statement.")
+        self.expect(TokenType.CLOSE_BRACE, "Closing Brace expected inside for statement.")
         self.loopDepth -= 1
 
         if incrementExpr is not None:
@@ -231,7 +253,7 @@ class Parser:
 
     def parseBinaryExpr(self, downstreamParser, operators: set[str]) -> Expr:
         left = downstreamParser()
-        while self.notEOF() and self.at().value in operators:
+        while self.notEOF() and self.at().type == TokenType.OPERATOR and self.at().value in operators:
             operator = self.consume().value
             right = downstreamParser()
             left = BinaryExpr(left=left, right=right, operator=operator)
@@ -251,15 +273,15 @@ class Parser:
 
     def parseUnaryExpr(self) -> Expr:
         #Prefix
-        if self.at().type == TokenType.UNARY_OPERATOR:
+        if self.at().type == TokenType.OPERATOR and self.at().value in {"!", "+", "-"}:
             operator = self.consume().value
-            operand = self.parseFuncCallExpr()
+            operand = self.parseUnaryExpr()
             return UnaryExpr(operand=operand, operator=operator, isPrefix=True)
 
         expr = self.parseFuncCallExpr()
 
         #Postfix
-        if self.at().type == TokenType.UNARY_OPERATOR:
+        if self.at().type == TokenType.OPERATOR and self.at().value in {"++", "--"}:
             operator = self.consume().value
             return UnaryExpr(operand=expr, operator=operator, isPrefix=False)
 
@@ -269,8 +291,8 @@ class Parser:
         expr = self.parsePrimaryExpr()
 
         if self.at().type == TokenType.OPEN_PAREN:
-            caller = cast(Expr, expr)
-            expr = FuncCallExpr(caller=caller, args=self.parseArguments())
+            callee = cast(Expr, expr)
+            expr = FuncCallExpr(callee=callee, args=self.parseArguments())
 
         return cast(Expr, expr)
 
@@ -281,7 +303,18 @@ class Parser:
                 return Identifier(symbol=self.consume().value)
             
             case TokenType.NUMBER:
-                return NumericLiteral(value=float(self.consume().value))
+                raw = self.consume().value
+                if "." in raw:
+                    return NumericLiteral(value=float(raw), isFloat=True)
+                else:
+                    return NumericLiteral(value=int(raw), isFloat=False)
+
+            case TokenType.BOOLEAN:
+                return BooleanLiteral(value=bool(self.consume().value))
+
+            case TokenType.NULL:
+                self.consume()
+                return NullLiteral(value=None)
             
             case TokenType.OPEN_PAREN:
                 self.consume()

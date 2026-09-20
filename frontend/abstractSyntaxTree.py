@@ -1,4 +1,4 @@
-from typing import Literal, Protocol
+from typing import Protocol
 from dataclasses import dataclass
 from enum import StrEnum, auto
 
@@ -17,6 +17,8 @@ class NodeType(StrEnum):
     FUNCTION_CALL_EXPRESSION = auto()
     ASSIGNMENT_EXPRESSION = auto()
     NUMERIC_LITERAL = auto()
+    BOOLEAN_LITERAL = auto()
+    NULL_LITERAL = auto()
     IDENTIFIER = auto()
     BINARY_EXPRESSION = auto()
     UNARY_EXPRESSION = auto()
@@ -75,7 +77,7 @@ class Expr(Stmt):
 
 @dataclass
 class FuncCallExpr(Expr):
-    caller : Expr
+    callee : Expr
     args : list[Expr]
     type: NodeType = NodeType.FUNCTION_CALL_EXPRESSION
 
@@ -107,4 +109,15 @@ class Identifier(Expr):
 @dataclass
 class NumericLiteral(Expr):
     value: int | float
+    isFloat: bool
     type: NodeType = NodeType.NUMERIC_LITERAL
+
+@dataclass
+class BooleanLiteral(Expr):
+    value: bool
+    type: NodeType = NodeType.BOOLEAN_LITERAL
+
+@dataclass
+class NullLiteral(Expr):
+    value: None
+    type: NodeType = NodeType.NULL_LITERAL

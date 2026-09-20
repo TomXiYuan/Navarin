@@ -1,11 +1,13 @@
-from enum import IntEnum, auto
+from enum import Enum, auto
 from dataclasses import dataclass
 import logging
 import sys
 
-class TokenType(IntEnum):
+class TokenType(Enum):
     # Literals
     NUMBER = auto()
+    BOOLEAN = auto()
+    NULL = auto()
     IDENTIFIER = auto()
     STRING = auto()
     
@@ -18,9 +20,7 @@ class TokenType(IntEnum):
     CLOSE_PAREN = auto()
     OPEN_BRACE = auto()   # {
     CLOSE_BRACE = auto()  # }
-    BINARY_OPERATOR = auto()
-    UNARY_OPERATOR = auto()
-    LOGIC_OPERATOR = auto()
+    OPERATOR = auto()
     
     # Keywords
     VAR = auto()
@@ -32,11 +32,12 @@ class TokenType(IntEnum):
     WHILE = auto()
     BREAK = auto()
     FOR = auto()
+    TRUE = auto()
+    FALSE = auto()
     
     # End of file
     EOF = auto()
 
-# Constants should also be UPPER_CASE
 KEYWORDS = {
     "var": TokenType.VAR,
     "const": TokenType.CONST,
@@ -46,7 +47,11 @@ KEYWORDS = {
     "else": TokenType.ELSE,
     "while": TokenType.WHILE,
     "break": TokenType.BREAK,
-    "for": TokenType.FOR
+    "for": TokenType.FOR,
+
+    "true": TokenType.BOOLEAN,
+    "false": TokenType.BOOLEAN,
+    "null": TokenType.NULL
 }
 
 SINGLE_CHARS = {
@@ -59,31 +64,31 @@ SINGLE_CHARS = {
     ",": TokenType.COMMA,
     ";": TokenType.EOS,
 
-    "+": TokenType.BINARY_OPERATOR,
-    "-": TokenType.BINARY_OPERATOR,
-    "*": TokenType.BINARY_OPERATOR,
-    "/": TokenType.BINARY_OPERATOR,
-    "%": TokenType.BINARY_OPERATOR,
+    "+": TokenType.OPERATOR,
+    "-": TokenType.OPERATOR,
+    "*": TokenType.OPERATOR,
+    "/": TokenType.OPERATOR,
+    "%": TokenType.OPERATOR,
 
-    "=": TokenType.EQUALS,
+    "<": TokenType.OPERATOR,
+    ">": TokenType.OPERATOR,
 
-    "<": TokenType.BINARY_OPERATOR,
-    ">": TokenType.BINARY_OPERATOR,
+    "!": TokenType.OPERATOR,
 
-    "!": TokenType.UNARY_OPERATOR
+    "=": TokenType.EQUALS
 }
 
 DOUBLE_CHARS = {
-    "<=": TokenType.BINARY_OPERATOR,
-    ">=": TokenType.BINARY_OPERATOR,
-    "==": TokenType.BINARY_OPERATOR,
-    "!=": TokenType.BINARY_OPERATOR,
+    "<=": TokenType.OPERATOR,
+    ">=": TokenType.OPERATOR,
+    "==": TokenType.OPERATOR,
+    "!=": TokenType.OPERATOR,
 
-    "++": TokenType.UNARY_OPERATOR,
-    "--": TokenType.UNARY_OPERATOR,
+    "++": TokenType.OPERATOR,
+    "--": TokenType.OPERATOR,
 
-    "&&": TokenType.LOGIC_OPERATOR,
-    "||": TokenType.LOGIC_OPERATOR,
+    "&&": TokenType.OPERATOR,
+    "||": TokenType.OPERATOR,
 }
 
 DOUBLE_CHAR_STARTS = {pair[0] for pair in DOUBLE_CHARS}
@@ -128,19 +133,19 @@ def tokenize(source_code: str) -> list[Token]:
 
          # Build number tokens   
         elif char.isdigit():
-            num_value = char
+            numValue = char
             while len(src) > 0 and (src[0].isdigit() or src[0] == "."):
-                num_value += src.pop(0)
-            tokens.append(create_token(num_value, TokenType.NUMBER))
+                numValue += src.pop(0)
+            tokens.append(create_token(numValue, TokenType.NUMBER))
 
         # Build identifier tokens
         elif char.isalpha() or char == "_":
-            id_value = char
-            while len(src) > 0 and src[0].isalpha():
-                id_value += src.pop(0)
+            idValue = char
+            while len(src) > 0 and src[0].isalnum():
+                idValue += src.pop(0)
             # Check if the identifier is a keyword
-            token_type = KEYWORDS[id_value] if id_value in KEYWORDS else TokenType.IDENTIFIER
-            tokens.append(create_token(id_value, token_type))
+            tokenType = KEYWORDS[idValue] if idValue in KEYWORDS else TokenType.IDENTIFIER
+            tokens.append(create_token(idValue, tokenType))
             
         else:
             logging.error(f"Unexpected character: {char}")
