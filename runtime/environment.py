@@ -28,22 +28,45 @@ class Environment:
 
         return value
 
-    def assignVar(self, varName: str, value: RuntimeVal) -> RuntimeVal:
-        env = self.resolve(varName)
-        if varName in env.constants:
-            raise Exception(f"Cannot reassign variable {varName} as it was declared constant.")
-        env.variables[varName] = value
-        return value
+    def ancestor(self, distance: int) -> 'Environment':
+        env: Environment = self
+        for _ in range(distance):
+            if env.parent is None:
+                raise Exception(
+                    f"Resolver/interpreter scope mismatch: tried to walk {distance} "
+                    f"scopes up, but ran out of parent environments early."
+                )
+            env = env.parent
+        return env
 
-    def lookupVar(self, varName: str) -> RuntimeVal:
-        env = self.resolve(varName)
-        return env.variables[varName]
+    def getAt(self, distance: int, name: str) -> 'RuntimeVal':
+        return self.ancestor(distance).variables[name]
 
-    def resolve(self, varName: str) -> Environment:
-        if self.variables.get(varName):
-            return self
+    def assignAt(self, distance: int, name: str, value: 'RuntimeVal'):
+        self.ancestor(distance).variables[name] = value
 
-        if self.parent == None:
-            raise Exception(f"Cannot resolve variable {varName} as it does not exist")
+    def getVar(self, name: str) -> RuntimeVal:
+        return self.variables[name]
 
-        return self.parent.resolve(varName)
+    def assignVar(self, name: str, value: RuntimeVal):
+        self.variables[name] = value
+
+    # def assignVar(self, varName: str, value: RuntimeVal) -> RuntimeVal:
+    #     env = self.resolve(varName)
+    #     if varName in env.constants:
+    #         raise Exception(f"Cannot reassign variable {varName} as it was declared constant.")
+    #     env.variables[varName] = value
+    #     return value
+
+    # def lookupVar(self, varName: str) -> RuntimeVal:
+    #     env = self.resolve(varName)
+    #     return env.variables[varName]
+
+    # def resolve(self, varName: str) -> Environment:
+    #     if self.variables.get(varName):
+    #         return self
+
+    #     if self.parent == None:
+    #         raise Exception(f"Cannot resolve variable {varName} as it does not exist")
+
+    #     return self.parent.resolve(varName)

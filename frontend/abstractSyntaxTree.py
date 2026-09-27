@@ -22,6 +22,8 @@ class NodeType(StrEnum):
     IDENTIFIER = auto()
     BINARY_EXPRESSION = auto()
     UNARY_EXPRESSION = auto()
+    INCREMENT_EXPRESSION = auto()
+    DECREMENT_EXPRESSION = auto()
 
 class Stmt(Protocol):
     type: NodeType

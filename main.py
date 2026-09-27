@@ -1,6 +1,8 @@
 from frontend.parser import Parser
-from runtime.interpreter import evaluate
+from runtime.resolver import Resolver
+from runtime.interpreter import Interpreter
 from runtime.environment import Environment
+from frontend.abstractSyntaxTree import Identifier
 import sys
 
 def main():
@@ -8,6 +10,7 @@ def main():
 
 def debug():
     parser = Parser()
+    interpreter = Interpreter()
     env = Environment(parent = None)
 
     while(True):
@@ -17,17 +20,22 @@ def debug():
             sys.exit(0)
 
         program = parser.produceAST(sourceCode)
-        evaluate(program, env)
+        interpreter.interpret(program)
 
 def run():
     parser = Parser()
+    interpreter = Interpreter()
+    resolver = Resolver(interpreter)
     env = Environment(parent = None)
 
     with open("test.txt") as file:
         sourceCode = file.read() 
     
     program = parser.produceAST(sourceCode)
-    evaluate(program, env)
+    resolver.resolveProgram(program)
+    
+    interpreter.locals = resolver.locals
+    interpreter.interpret(program)
 
 if __name__ == "__main__":
     main()

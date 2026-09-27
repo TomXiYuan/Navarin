@@ -1,6 +1,7 @@
 import logging
 import sys
 import operator as op
+from typing import TYPE_CHECKING
 
 from runtime.values import (
     RuntimeVal, 
@@ -21,8 +22,10 @@ from frontend.abstractSyntaxTree import (
     UnaryExpr
 )
 from runtime.eval.statements import Return, evalBlockStmt
-import runtime.interpreter as interpreter
 from runtime.environment import Environment
+
+if TYPE_CHECKING:
+    from runtime.interpreter import Interpreter
 
 NUMERIC_OPS = {
     "+": op.add,
@@ -43,12 +46,12 @@ COMPARISON_OPS = {
 LOGICAL_OPS = {"&&", "||"}
 UNARY_NUMERIC_OPS = {"++", "--", "+", "-"}
 
-def evalBinaryExpr(expr: BinaryExpr, env: Environment) -> RuntimeVal:
+def evalBinaryExpr(expr: BinaryExpr, env: Environment, interpreter: "Interpreter") -> RuntimeVal:
     operator = expr.operator
 
-    # Short circuit
+    # Short circuit evaluation
     if operator in LOGICAL_OPS:
-        return evalLogicalBinaryExpr(expr, env)
+        return evalLogicalBinaryExpr(expr, env, interpreter)
 
     left = interpreter.evaluate(expr.left, env)
     right = interpreter.evaluate(expr.right, env)
@@ -59,35 +62,26 @@ def evalBinaryExpr(expr: BinaryExpr, env: Environment) -> RuntimeVal:
     logging.error(f"Cannot perform binary operation between {left.type} and {right.type}.")
     sys.exit(1)
 
-def evalLogicalBinaryExpr(binop: BinaryExpr, env: Environment) -> BoolVal:
+def evalLogicalBinaryExpr(binop: BinaryExpr, env: Environment, interpreter: "Interpreter") -> BoolVal:
     left = interpreter.evaluate(binop.left, env)
 
     if not isinstance(left, BoolVal):
         logging.error(f"Left-hand side of '{binop.operator}' must be a boolean, got {left.type}")
         sys.exit(1)
 
-    if binop.operator == "&&":
-        if not left.value:
-            return MK_BOOL(False)
+    # Short-circuit paths
+    if binop.operator == "&&" and not left.value:
+        return MK_BOOL(False)
+    if binop.operator == "||" and left.value:
+        return MK_BOOL(True)
 
-        right = interpreter.evaluate(binop.right, env)
-        if not isinstance(right, BoolVal):
-            logging.error(f"Right-hand side of '{binop.operator}' must be a boolean, got {right.type}")
-            sys.exit(1)
-        return MK_BOOL(right.value)
+    # Evaluate right side if short-circuit didn't trigger
+    right = interpreter.evaluate(binop.right, env)
+    if not isinstance(right, BoolVal):
+        logging.error(f"Right-hand side of '{binop.operator}' must be a boolean, got {right.type}")
+        sys.exit(1)
 
-    if binop.operator == "||":
-        if left.value:
-            return MK_BOOL(True)
-
-        right = interpreter.evaluate(binop.right, env)
-        if not isinstance(right, BoolVal):
-            logging.error(f"Right-hand side of '{binop.operator}' must be a boolean, got {right.type}")
-            sys.exit(1)
-        return MK_BOOL(right.value)
-
-    logging.error(f"Unknown logical operator: {binop.operator}")
-    sys.exit(1)
+    return MK_BOOL(right.value)
 
 def evalNumericBinaryExpr(left: IntVal | FloatVal, right: IntVal | FloatVal, operator: str) -> RuntimeVal:
     if operator in ("/", "%") and right.value == 0:
@@ -106,17 +100,15 @@ def evalNumericBinaryExpr(left: IntVal | FloatVal, right: IntVal | FloatVal, ope
     logging.error(f"Operator '{operator}' is not supported between numbers")
     sys.exit(1)
 
-def evalUnaryExpr(expr: UnaryExpr, env: Environment) -> RuntimeVal:
+def evalUnaryExpr(expr: UnaryExpr, env: Environment, interpreter: Interpreter) -> RuntimeVal:
     operator = expr.operator
-
+    operandVal = interpreter.evaluate(expr.operand, env)
+    
     if operator == "!":
-        operandVal = interpreter.evaluate(expr.operand, env)
         if not isinstance(operandVal, BoolVal):
             logging.error(f"Type mismatch: '!' requires a boolean, got {operandVal.type}")
             sys.exit(1)
         return MK_BOOL(not operandVal.value)
-
-    operandVal = interpreter.evaluate(expr.operand, env)
 
     if operator in ("+", "-"):
         if not isinstance(operandVal, IntVal | FloatVal):
@@ -134,7 +126,7 @@ def evalUnaryExpr(expr: UnaryExpr, env: Environment) -> RuntimeVal:
             logging.error(f"Invalid operand for '{operator}': expected Identifier, got {expr.operand.type}")
             sys.exit(1)
 
-        varName = expr.operand.symbol
+        name = expr.operand.symbol
         
         if not isinstance(operandVal, IntVal | FloatVal):
             logging.error(f"Type mismatch: '{operator}' requires a number, got {operandVal.type}")
@@ -147,26 +139,38 @@ def evalUnaryExpr(expr: UnaryExpr, env: Environment) -> RuntimeVal:
         else:
             newVal = MK_NUMBER(operandVal.value - 1)
         
-        env.assignVar(varName, newVal)
+        dst = interpreter.locals.get(id(expr.operand))
+        if not dst == None:
+            env.assignAt(dst, name, newVal)
+        else:
+            interpreter.assignGlobalVar(name, newVal)
 
         return newVal if expr.isPrefix else oldVal
 
     logging.error(f"Unknown unary operator: {operator}")
     sys.exit(1)
 
+def evalAssignmentExpr(assignExpr: AssignmentExpr, env : Environment, interpreter: Interpreter) -> RuntimeVal:
+    value = interpreter.evaluate(assignExpr.value, env)
+    if isinstance(assignExpr.assigne, Identifier):
+        dst = interpreter.locals.get(id(assignExpr.assigne))
+        if not dst == None:
+            env.assignAt(dst, assignExpr.assigne.symbol, value)
+        else:
+            interpreter.assignGlobalVar(assignExpr.assigne.symbol, value)
+        return value
+    return value
 
-def evalAssignmentExpr(expr: AssignmentExpr, env : Environment) -> RuntimeVal:
-    if not isinstance(expr.assigne, Identifier):
-        raise Exception(f"Invalid LHS inside assignment expression: {expr.assigne}")
+def evalIdentifier(identifier: Identifier, env: Environment, interpreter: Interpreter) -> RuntimeVal:
+    # val = env.lookupVar(identifier.symbol)
+    # return val
 
-    varName = expr.assigne.symbol
-    return env.assignVar(varName, interpreter.evaluate(expr.value, env))
+    dst = interpreter.locals.get(id(identifier))
+    if not dst == None:
+        return env.getAt(dst, identifier.symbol)
+    return interpreter.getGlobalVar(identifier.symbol)
 
-def evalIdentifier(identifier: Identifier, env: Environment) -> RuntimeVal:
-    val = env.lookupVar(identifier.symbol)
-    return val
-
-def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment) -> RuntimeVal:
+def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment, interpreter: Interpreter) -> RuntimeVal:
     args = [interpreter.evaluate(arg, env) for arg in funcCall.args]
     calleeVal = interpreter.evaluate(funcCall.callee, env)
 
@@ -186,7 +190,7 @@ def evalFuncCallExpr(funcCall: FuncCallExpr, env: Environment) -> RuntimeVal:
             funcEnv.declVar(params[i], args[i], False)
 
         try:
-            evalBlockStmt(funcVal.body, funcEnv)
+            evalBlockStmt(funcVal.body, funcEnv, interpreter)
         except Return as returnSignal:
             return returnSignal.value
 

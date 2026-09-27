@@ -11,15 +11,16 @@ from frontend.abstractSyntaxTree import (
     FuncDecl,
     Identifier,
     IfStmt,
-    NodeType,
+    BreakStmt,
     NullLiteral,
     NumericLiteral,
     Program,
     ReturnStmt,
     Stmt,
+    Expr,
     UnaryExpr,
     VarDecl,
-    WhileStmt,
+    WhileStmt
 )
 from runtime.environment import Environment
 from runtime.eval.expressions import (
@@ -41,59 +42,74 @@ from runtime.eval.statements import (
 )
 from runtime.values import RuntimeVal, MK_BOOL, MK_NULL, MK_NUMBER
 
-def evaluate(astNode : Stmt, env: Environment) -> RuntimeVal:
-    match astNode.type:
-        case NodeType.NUMERIC_LITERAL:
-            return MK_NUMBER(value=cast(NumericLiteral, astNode).value)
+class Interpreter:
+    globalEnv: Environment
+    locals: dict[int, int]
 
-        case NodeType.BOOLEAN_LITERAL:
-            return MK_BOOL(value=cast(BooleanLiteral, astNode).value)
+    def __init__(self):
+        self.locals: dict[int, int] = {}
+        self.globalEnv = Environment(None)
 
-        case NodeType.NULL_LITERAL:
-            return MK_NULL()
+    def interpret(self, program: Program) -> RuntimeVal:
+        return self.evaluate(program, self.globalEnv)
 
-        case NodeType.BOOLEAN_LITERAL:
-            return MK_NULL(value=cast(NullLiteral, astNode).value)
+    def getGlobalVar(self, varName: str) -> RuntimeVal:
+        return self.globalEnv.getVar(varName)
 
-        case NodeType.IDENTIFIER:
-            return evalIdentifier(cast(Identifier, astNode), env)
+    def assignGlobalVar(self, varName: str, value: RuntimeVal) -> RuntimeVal:
+        self.globalEnv.assignVar(varName, value)
+        return value
 
-        case NodeType.ASSIGNMENT_EXPRESSION:
-            return evalAssignmentExpr(cast(AssignmentExpr, astNode), env)
+    def evaluate(self, astNode: Stmt, env: Environment) -> RuntimeVal:
+        match astNode:
+            case NumericLiteral():
+                return MK_NUMBER(value=astNode.value)
 
-        case NodeType.BINARY_EXPRESSION:
-            return evalBinaryExpr(cast(BinaryExpr, astNode), env)
+            case BooleanLiteral():
+                return MK_BOOL(value=astNode.value)
 
-        case NodeType.UNARY_EXPRESSION:
-            return evalUnaryExpr(cast(UnaryExpr, astNode), env)
+            case NullLiteral():
+                return MK_NULL()
 
-        case NodeType.PROGRAM:
-            return evalProgram(cast(Program, astNode), env)
+            case Identifier():
+                return evalIdentifier(astNode, env, self)
 
-        case NodeType.VARIABLE_DECLARATION:
-            return evalVarDecl(cast(VarDecl, astNode), env)
+            case AssignmentExpr():
+                return evalAssignmentExpr(astNode, env, self)
 
-        case NodeType.FUNCTION_DECLARATION:
-            return evalFuncDecl(cast(FuncDecl, astNode), env)
+            case BinaryExpr():
+                return evalBinaryExpr(astNode, env, self)
 
-        case NodeType.FUNCTION_CALL_EXPRESSION:
-            return evalFuncCallExpr(cast(FuncCallExpr, astNode), env)
+            case UnaryExpr():
+                return evalUnaryExpr(astNode, env, self)
 
-        case NodeType.RETURN_STATEMENT:
-            return evalReturnStmt(cast(ReturnStmt, astNode), env)
+            case Program():
+                return evalProgram(astNode, env, self)
 
-        case NodeType.IF_STATEMENT:
-            return evalIfStmt(cast(IfStmt, astNode), env)
+            case VarDecl():
+                return evalVarDecl(astNode, env, self)
 
-        case NodeType.WHILE_STATEMENT:
-            return evalWhileStmt(cast(WhileStmt, astNode), env)
+            case FuncDecl():
+                return evalFuncDecl(astNode, env, self)
 
-        case NodeType.BREAK_STATEMENT:
-            return evalBreakStmt()
+            case FuncCallExpr():
+                return evalFuncCallExpr(astNode, env, self)
 
-        case NodeType.BLOCK_STATEMENT:
-            return evalBlockStmt(cast(BlockStmt, astNode), env)
+            case ReturnStmt():
+                return evalReturnStmt(astNode, env, self)
 
-        case _:
-            logging.error(f"This AST node has not been setup for interpretation: {astNode}")
-            sys.exit(1)
+            case IfStmt():
+                return evalIfStmt(astNode, env, self)
+
+            case WhileStmt():
+                return evalWhileStmt(astNode, env, self)
+
+            case BreakStmt():
+                return evalBreakStmt()
+
+            case BlockStmt():
+                return evalBlockStmt(astNode, env, self)
+
+            case _:
+                logging.error(f"This AST node has not been setup for interpretation: {astNode}")
+                sys.exit(1)
